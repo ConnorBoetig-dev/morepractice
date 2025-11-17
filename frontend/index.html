@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Billings - Home</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!--
+        LANDING PAGE - First page users see
+
+        Purpose: Provide navigation to signup/login or dashboard
+
+        What you'll learn here:
+        - Basic HTML structure
+        - How to check if user is already logged in
+        - Client-side routing (redirecting based on authentication state)
+    -->
+
+    <div class="container">
+        <header class="hero">
+            <h1>🎓 Billings Learning Platform</h1>
+            <p class="subtitle">Full-Stack Authentication Demo</p>
+            <p class="description">
+                This is a simple frontend demonstrating how to interact with a
+                FastAPI backend using JWT authentication.
+            </p>
+        </header>
+
+        <main>
+            <div class="card">
+                <h2>Getting Started</h2>
+                <p>Create an account or log in to access your dashboard</p>
+
+                <div class="button-group">
+                    <a href="signup.html" class="button button-primary">
+                        📝 Sign Up
+                    </a>
+                    <a href="login.html" class="button button-secondary">
+                        🔐 Log In
+                    </a>
+                </div>
+
+                <!-- This will show if user is already logged in -->
+                <div id="logged-in-message" style="display: none;">
+                    <hr style="margin: 20px 0;">
+                    <p style="color: #28a745;">✓ You're already logged in!</p>
+                    <a href="dashboard.html" class="button button-success">
+                        Go to Dashboard →
+                    </a>
+                </div>
+            </div>
+
+            <div class="features">
+                <h3>What This Demo Shows</h3>
+                <ul class="feature-list">
+                    <li>
+                        <strong>User Registration</strong> - Create account with email/password
+                    </li>
+                    <li>
+                        <strong>Authentication</strong> - Log in and receive JWT token
+                    </li>
+                    <li>
+                        <strong>Protected Routes</strong> - Access dashboard only when authenticated
+                    </li>
+                    <li>
+                        <strong>API Communication</strong> - Make requests to FastAPI backend
+                    </li>
+                    <li>
+                        <strong>Token Management</strong> - Store JWT in localStorage
+                    </li>
+                    <li>
+                        <strong>Error Handling</strong> - Display user-friendly error messages
+                    </li>
+                </ul>
+            </div>
+
+            <div class="tech-stack">
+                <h3>Technology Stack</h3>
+                <div class="tech-grid">
+                    <div class="tech-item">
+                        <strong>Frontend</strong>
+                        <p>HTML, CSS, Vanilla JavaScript</p>
+                    </div>
+                    <div class="tech-item">
+                        <strong>Backend</strong>
+                        <p>FastAPI (Python)</p>
+                    </div>
+                    <div class="tech-item">
+                        <strong>Database</strong>
+                        <p>PostgreSQL</p>
+                    </div>
+                    <div class="tech-item">
+                        <strong>Authentication</strong>
+                        <p>JWT (JSON Web Tokens)</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Built for learning full-stack development</p>
+            <p class="small">Backend running on <code>http://localhost:8000</code></p>
+        </footer>
+    </div>
+
+    <!--
+        JAVASCRIPT MODULE
+
+        We use type="module" to enable ES6 imports
+        This allows us to organize code into separate files
+    -->
+    <script type="module">
+        // Import our authentication utility
+        // This file handles JWT token storage and retrieval
+        import { isAuthenticated } from './js/auth.js';
+
+        // Check if user is already logged in
+        // This runs as soon as the page loads
+        if (isAuthenticated()) {
+            // User has a token stored - show the "already logged in" message
+            document.getElementById('logged-in-message').style.display = 'block';
+        }
+    </script>
+</body>
+</html>

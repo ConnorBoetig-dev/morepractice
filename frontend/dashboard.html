@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Billings</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!--
+        DASHBOARD PAGE - Protected Route
+
+        Purpose: Display user information (requires authentication)
+
+        What you'll learn here:
+        - Protected routes (redirect if not authenticated)
+        - Making authenticated GET requests (with Bearer token)
+        - Displaying data from API response
+        - Handling token expiration (401 errors)
+        - Logout functionality
+    -->
+
+    <div class="container">
+        <!-- Navigation Bar -->
+        <nav class="navbar">
+            <div class="nav-brand">
+                <h2>🎓 Billings</h2>
+            </div>
+            <div class="nav-actions">
+                <button id="logout-btn" class="button button-danger-outline">
+                    Logout
+                </button>
+            </div>
+        </nav>
+
+        <div class="dashboard">
+            <div class="dashboard-header">
+                <h1>👋 Welcome Back!</h1>
+                <p>Your personal dashboard</p>
+            </div>
+
+            <!--
+                LOADING INDICATOR
+
+                Shows while fetching user data from API
+                Hidden once data is loaded
+            -->
+            <div id="loading" class="loading-spinner">
+                <p>Loading your information...</p>
+            </div>
+
+            <!--
+                ERROR MESSAGE AREA
+
+                Shows if:
+                - Token is expired (401 Unauthorized)
+                - Backend is down (network error)
+                - Other API errors
+            -->
+            <div id="error-message" class="error-message" style="display: none;"></div>
+
+            <!--
+                USER INFO CARD
+
+                Hidden by default, shown once data is loaded
+                Populated with user data from GET /api/v1/auth/me
+            -->
+            <div id="user-info" class="card" style="display: none;">
+                <h2>Your Information</h2>
+
+                <div class="info-grid">
+                    <div class="info-item">
+                        <strong>User ID:</strong>
+                        <span id="user-id">-</span>
+                    </div>
+
+                    <div class="info-item">
+                        <strong>Email:</strong>
+                        <span id="user-email">-</span>
+                    </div>
+
+                    <div class="info-item">
+                        <strong>Username:</strong>
+                        <span id="user-username">-</span>
+                    </div>
+
+                    <div class="info-item">
+                        <strong>Account Status:</strong>
+                        <span id="user-status">-</span>
+                    </div>
+
+                    <div class="info-item">
+                        <strong>Account Created:</strong>
+                        <span id="user-created">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!--
+                TOKEN INFO CARD (Educational)
+
+                Shows how JWT token works
+            -->
+            <div class="card">
+                <h2>🔐 Authentication Info</h2>
+                <p>You are currently authenticated with a JWT token.</p>
+
+                <details>
+                    <summary>View Token Details (for learning)</summary>
+                    <div class="code-block" style="margin-top: 10px;">
+                        <strong>Your JWT Token:</strong><br>
+                        <code id="token-display" style="word-break: break-all; font-size: 11px;">
+                            Loading...
+                        </code><br><br>
+
+                        <strong>How it works:</strong>
+                        <ul style="text-align: left; margin-top: 10px;">
+                            <li>Token is stored in localStorage</li>
+                            <li>Sent in Authorization header: <code>Bearer &lt;token&gt;</code></li>
+                            <li>Backend validates token on every protected request</li>
+                            <li>Token expires after 15 minutes (for security)</li>
+                            <li>Logout clears token from localStorage</li>
+                        </ul>
+                    </div>
+                </details>
+            </div>
+
+            <!--
+                API REQUEST INFO (Educational)
+
+                Shows what API call is being made
+            -->
+            <div class="api-info">
+                <details>
+                    <summary>API Details (for learning)</summary>
+                    <div class="code-block">
+                        <strong>Endpoint:</strong> GET /api/v1/auth/me<br><br>
+
+                        <strong>Request Headers:</strong><br>
+                        <code>
+                            Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...<br>
+                            Content-Type: application/json
+                        </code><br><br>
+
+                        <strong>Response (Success):</strong><br>
+                        <code>
+                            {<br>
+                            &nbsp;&nbsp;"id": 1,<br>
+                            &nbsp;&nbsp;"email": "user@example.com",<br>
+                            &nbsp;&nbsp;"username": "johndoe",<br>
+                            &nbsp;&nbsp;"is_active": true,<br>
+                            &nbsp;&nbsp;"created_at": "2024-01-15T10:30:00"<br>
+                            }
+                        </code><br><br>
+
+                        <strong>Response (Expired Token - 401):</strong><br>
+                        <code>
+                            {<br>
+                            &nbsp;&nbsp;"detail": "Invalid or expired token"<br>
+                            }
+                        </code>
+                    </div>
+                </details>
+            </div>
+
+            <!--
+                LEARNING RESOURCES
+
+                Additional information about authentication
+            -->
+            <div class="card learning-card">
+                <h3>📚 What You Just Learned</h3>
+                <ul class="feature-list">
+                    <li><strong>Protected Routes:</strong> Page redirects to login if no token found</li>
+                    <li><strong>Bearer Tokens:</strong> JWT sent in <code>Authorization</code> header</li>
+                    <li><strong>Authenticated Requests:</strong> Backend validates token on every request</li>
+                    <li><strong>Token Expiration:</strong> Tokens expire for security (15 min)</li>
+                    <li><strong>Logout:</strong> Removes token from localStorage (client-side)</li>
+                    <li><strong>Error Handling:</strong> 401 errors redirect to login page</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!--
+        JAVASCRIPT MODULE
+
+        The dashboard logic is in js/dashboard.js
+        It handles:
+        - Checking authentication
+        - Fetching user data
+        - Displaying user info
+        - Logout functionality
+    -->
+    <script type="module" src="js/dashboard.js"></script>
+</body>
+</html>

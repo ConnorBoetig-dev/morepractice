@@ -134,12 +134,25 @@ from sqlalchemy.orm import Session
 # Bearer token security scheme - extracts "Authorization: Bearer <token>" from headers
 security = HTTPBearer()
 
+# Import get_db dependency for database session injection
+# Defined in: app/api/v1/auth_routes.py (or should be in app/db/session.py)
+from app.db.session import SessionLocal
+
+# Database session dependency - creates a session for each request
+def get_db():
+    """FastAPI dependency that provides a database session"""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 # GET CURRENT USER DEPENDENCY
 # Used by: Protected routes that require authentication (e.g., GET /auth/me)
-# Note: Routes must inject both get_db() and this function via Depends()
+# FastAPI automatically injects the database session via Depends(get_db)
 def get_current_user(
-    db: Session,  # ← Database session from route's Depends(get_db)
     credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),  # ← FastAPI injects DB session automatically
 ):
     """
     FastAPI DEPENDENCY: Extracts user from JWT token in Authorization header

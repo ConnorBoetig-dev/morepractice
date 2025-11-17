@@ -105,19 +105,20 @@ app = FastAPI(title="Billings API")  # Creates the FastAPI app instance
 # ============================================
 # CONFIGURE CORS MIDDLEWARE
 # ============================================
-# Allow React frontend to make API requests from different origin (localhost:5173 or :3000)
-# Origins: List of URLs that are allowed to make requests to this API
-# Credentials: Allow cookies and Authorization headers to be sent
-# Methods/Headers: Allow all HTTP methods and headers
+# CORS (Cross-Origin Resource Sharing) allows browser-based frontends to make API requests
+# Without CORS, browsers block requests from frontend (localhost:8080) to backend (localhost:8000)
+#
+# Security: Only allow requests from our frontend origin
+# Note: Database (PostgreSQL) doesn't need CORS - it uses SQL connections, not HTTP
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173",  # Vite default dev server
-        "http://localhost:3000",  # Create React App default
+        "http://localhost:8080",    # Frontend via localhost
+        "http://127.0.0.1:8080",    # Frontend via 127.0.0.1 (same machine, different origin)
     ],
-    allow_credentials=True,  # Required for sending JWT tokens in headers
-    allow_methods=["*"],  # Allow GET, POST, PUT, DELETE, etc.
-    allow_headers=["*"],  # Allow Authorization, Content-Type, etc.
+    allow_credentials=True,  # Allow Authorization headers (for JWT tokens)
+    allow_methods=["*"],  # Allow all HTTP methods (GET, POST, PUT, DELETE)
+    allow_headers=["*"],  # Allow all headers (Content-Type, Authorization, etc.)
 )
 
 

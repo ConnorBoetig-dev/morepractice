@@ -26,6 +26,10 @@ from app.schemas.auth import SignupRequest, LoginRequest, TokenResponse, UserRes
 # Defined in: app/utils/auth.py
 from app.utils.auth import get_current_user
 
+# User model - needed for type annotation on protected routes
+# Defined in: app/models/user.py
+from app.models.user import User
+
 # Create a router specifically for auth endpoints
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -93,23 +97,22 @@ def login_route(payload: LoginRequest, db: Session = Depends(get_db)):
 # GET /api/v1/auth/me - Get current authenticated user
 @router.get("/me", response_model=UserResponse)
 def get_me_route(
-    current_user = Depends(get_current_user),  # ← FastAPI injects authenticated user
-    db: Session = Depends(get_db)  # ← Database session for get_current_user
+    current_user: User = Depends(get_current_user),  # ← FastAPI injects authenticated user
 ):
     """
     Get current user information from JWT token
 
     What happens:
-    1. FastAPI runs get_db() to create database session
-    2. FastAPI runs get_current_user() dependency (extracts user from JWT)
-    3. get_current_user() validates token and queries database for user
-    4. If token is invalid/expired, raises 401 HTTPException
-    5. If valid, returns User model
-    6. response_model=UserResponse ensures password hash is NOT included in response
+    1. FastAPI runs get_current_user() dependency (which internally uses get_db())
+    2. get_current_user() validates token and queries database for user
+    3. If token is invalid/expired, raises 401 HTTPException
+    4. If valid, returns User model
+    5. response_model=UserResponse ensures password hash is NOT included in response
 
     Protected Route: Requires "Authorization: Bearer <token>" header
     """
     # Depends(get_current_user) already fetched the user from database
+    # get_current_user() handles DB connection internally
     # Calls: app/utils/auth.py → get_current_user() (validates token and queries DB)
 
     # FastAPI auto-converts User model to UserResponse JSON (excludes password)
@@ -118,7 +121,7 @@ def get_me_route(
 
 # POST /api/v1/auth/logout - Logout user (client-side token removal)
 @router.post("/logout")
-def logout_route(current_user = Depends(get_current_user), db: Session = Depends(get_db)):
+def logout_route(current_user: User = Depends(get_current_user)):
     """
     Logout endpoint - informs client to remove token
 
