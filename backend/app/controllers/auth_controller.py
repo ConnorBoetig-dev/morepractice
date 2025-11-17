@@ -1,90 +1,126 @@
+# CONTROLLER LAYER - Business logic and workflow orchestration
+#
+# What controllers DO:
+# - Orchestrate multiple service calls
+# - Make business logic decisions (if user exists, throw error, etc.)
+# - Call utility functions (password hashing, token creation)
+# - Return data to routes
+#
+# What controllers DON'T DO:
+# - Direct database queries (that's what SERVICES do)
+# - HTTP request/response handling (that's what ROUTES do)
+
+# FastAPI imports for error handling
 from fastapi import HTTPException, status
+
+# SQLAlchemy Session type - passed to services for database access
 from sqlalchemy.orm import Session
 
+# SERVICE imports - services are the ONLY layer that queries the database
+# Defined in: app/services/auth_service.py
 from app.services.auth_service import (
-    create_user,
-    get_user_by_email,
-    get_user_by_id,
+    create_user,        # ← SERVICE: Inserts user into database
+    get_user_by_email,  # ← SERVICE: Queries database for user by email
 )
-from app.services.profile_service import create_profile
-from app.utils.auth import verify_password, create_access_token, decode_access_token
+
+# Defined in: app/services/profile_service.py
+from app.services.profile_service import create_profile  # ← SERVICE: Inserts profile into database
+
+# UTILITY imports - helper functions (no database access)
+# Defined in: app/utils/auth.py
+from app.utils.auth import (
+    verify_password,      # ← UTILITY: Compares password with bcrypt hash
+    create_access_token,  # ← UTILITY: Generates signed JWT token
+)
 
 
-# ----------------------------------------------------
-# SIGNUP
-# ----------------------------------------------------
+# SIGNUP CONTROLLER
+# Called by: app/api/v1/auth_routes.py → signup_route()
 def signup(db: Session, email: str, password: str, username: str) -> dict:
-    # 1. Check if user already exists
-    existing = get_user_by_email(db, email)
+    """
+    Orchestrates the signup workflow
+
+    This controller:
+    - Checks if email is already taken (calls SERVICE)
+    - Creates user in database (calls SERVICE)
+    - Creates profile (calls SERVICE)
+    - Generates JWT token (calls UTILITY)
+
+    This controller does NOT query the database directly!
+    """
+
+    # Step 1: Check if user already exists
+    # Call SERVICE to query database
+    existing = get_user_by_email(db, email)  # ← SERVICE does the database query
     if existing:
+        # Business logic decision: reject duplicate email
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered.",
         )
 
-    # 2. Create user
-    user = create_user(db, email=email, password=password, username=username)
+    # Step 2: Create user in database
+    # Call SERVICE to insert user (SERVICE will hash password)
+    user = create_user(db, email=email, password=password, username=username)  # ← SERVICE does the INSERT
 
-    # 3. Create user profile
-    create_profile(db, user_id=user.id)
+    # Step 3: Create user profile with default stats
+    # Call SERVICE to insert profile
+    create_profile(db, user_id=user.id)  # ← SERVICE does the INSERT
 
-    # 4. Create JWT token
-    token = create_access_token({"user_id": user.id})
+    # Step 4: Generate JWT token
+    # Call UTILITY (no database involved)
+    token = create_access_token({"user_id": user.id})  # ← UTILITY creates token
 
-    return {"access_token": token, "user_id": user.id, "username": user.username}
+    # Return token so user is immediately authenticated
+    # token_type: "bearer" follows OAuth 2.0 standard (tells client how to use token)
+    return {
+        "access_token": token,
+        "token_type": "bearer",  # ← OAuth 2.0 bearer token standard
+        "user_id": user.id,
+        "username": user.username,
+    }
 
 
-# ----------------------------------------------------
-# LOGIN
-# ----------------------------------------------------
+# LOGIN CONTROLLER
+# Called by: app/api/v1/auth_routes.py → login_route()
 def login(db: Session, email: str, password: str) -> dict:
-    # 1. Look up the user
-    user = get_user_by_email(db, email)
+    """
+    Orchestrates the login workflow
+
+    This controller:
+    - Looks up user by email (calls SERVICE)
+    - Verifies password (calls UTILITY)
+    - Generates JWT token (calls UTILITY)
+
+    This controller does NOT query the database directly!
+    """
+
+    # Step 1: Look up user by email
+    # Call SERVICE to query database
+    user = get_user_by_email(db, email)  # ← SERVICE does the database query
     if not user:
+        # Business logic: generic error prevents email enumeration attacks
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password.",
         )
 
-    # 2. Verify password
-    if not verify_password(password, user.hashed_password):
+    # Step 2: Verify password
+    # Call UTILITY to compare password with hash (no database involved)
+    if not verify_password(password, user.hashed_password):  # ← UTILITY compares hashes
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password.",
         )
 
-    # 3. Create JWT token
-    token = create_access_token({"user_id": user.id})
+    # Step 3: Generate JWT token
+    # Call UTILITY (no database involved)
+    token = create_access_token({"user_id": user.id})  # ← UTILITY creates token
 
-    return {"access_token": token, "user_id": user.id, "username": user.username}
-
-
-# ----------------------------------------------------
-# GET CURRENT USER FROM TOKEN
-# ----------------------------------------------------
-def get_current_user_from_token(db: Session, token: str):
-    # 1. Decode token
-    payload = decode_access_token(token)
-    if payload is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token.",
-        )
-
-    # 2. Extract user_id
-    user_id = payload.get("user_id")
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token payload.",
-        )
-
-    # 3. Load user
-    user = get_user_by_id(db, user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found.",
-        )
-
-    return user
+    # Return token with OAuth 2.0 standard format
+    return {
+        "access_token": token,
+        "token_type": "bearer",  # ← OAuth 2.0 bearer token standard
+        "user_id": user.id,
+        "username": user.username,
+    }
