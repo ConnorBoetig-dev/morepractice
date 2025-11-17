@@ -29,3 +29,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Question Data Files (proprietary content)
+backend/data/COMPTIA/*.csv
+backend/data/COMPTIA/
