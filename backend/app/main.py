@@ -129,9 +129,19 @@ app.add_middleware(
 # Defined in: app/api/v1/auth_routes.py
 from app.api.v1.auth_routes import router as auth_router
 
+# Import router from question routes file
+# Defined in: app/api/v1/question_routes.py
+from app.api.v1.question_routes import router as question_router
+
 # Register the auth router with /api/v1 prefix
 # This creates routes:
 #   - POST /api/v1/auth/signup
 #   - POST /api/v1/auth/login
 #   - GET  /api/v1/auth/me
 app.include_router(auth_router, prefix="/api/v1")
+
+# Register the question router with /api/v1 prefix
+# This creates routes:
+#   - GET /api/v1/questions/exams
+#   - GET /api/v1/questions/quiz?exam_type=security&count=30
+app.include_router(question_router, prefix="/api/v1")

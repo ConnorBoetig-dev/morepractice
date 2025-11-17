@@ -7,9 +7,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 # SQLAlchemy Session type - represents a database connection
 from sqlalchemy.orm import Session
 
-# SessionLocal - database connection factory
+# Import database session dependency
 # Defined in: app/db/session.py
-from app.db.session import SessionLocal
+# This provides a database connection for each request
+from app.db.session import get_db
 
 # Controller functions - routes call these (controllers have the business logic)
 # Defined in: app/controllers/auth_controller.py
@@ -32,24 +33,6 @@ from app.models.user import User
 
 # Create a router specifically for auth endpoints
 router = APIRouter(prefix="/auth", tags=["Auth"])
-
-# ----------------------------------------------------
-# Dependency: Create a DB session for each request
-# ----------------------------------------------------
-def get_db():
-    """
-    This function is a DEPENDENCY.
-    FastAPI will call this BEFORE running the route.
-
-    - It creates a fresh Postgres DB session.
-    - `yield` gives the session to the route.
-    - After the route finishes, the session is closed.
-    """
-    db = SessionLocal()   # open DB connection
-    try:
-        yield db          # give connection to route handler
-    finally:
-        db.close()        # close connection automatically
 
 # POST /api/v1/auth/signup - User registration endpoint
 @router.post("/signup", response_model=TokenResponse)
