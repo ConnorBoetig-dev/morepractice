@@ -185,7 +185,11 @@ def get_current_user(
     # Import User model here to avoid circular imports
     from app.models.user import User
 
-    user = db.query(User).filter(User.id == user_id).first()
+    # Call service layer to get user (SERVICE LAYER handles all database queries)
+    # Defined in: app/services/auth_service.py
+    from app.services.auth_service import get_user_by_id
+
+    user = get_user_by_id(db, user_id)  # ← Calls service layer (not direct query)
 
     # If user not found in database (maybe deleted after token was issued)
     if user is None:

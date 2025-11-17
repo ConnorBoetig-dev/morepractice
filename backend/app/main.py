@@ -16,6 +16,49 @@
 from dotenv import load_dotenv
 load_dotenv()  # Must be called before importing modules that use env vars
 
+# ============================================
+# VALIDATE REQUIRED ENVIRONMENT VARIABLES
+# ============================================
+# SECURITY: Fail fast if critical environment variables are missing
+# This prevents the app from running with insecure fallback values
+import os
+import sys
+
+# List of critical environment variables that MUST be set
+REQUIRED_ENV_VARS = [
+    "DATABASE_URL",    # PostgreSQL connection string
+    "JWT_SECRET",      # Secret key for signing JWT tokens
+]
+
+# Check for missing environment variables
+missing_vars = [var for var in REQUIRED_ENV_VARS if not os.getenv(var)]
+
+if missing_vars:
+    # Print error message to stderr and exit
+    print("=" * 60, file=sys.stderr)
+    print("ERROR: Missing required environment variables!", file=sys.stderr)
+    print("=" * 60, file=sys.stderr)
+    print(f"Missing variables: {', '.join(missing_vars)}", file=sys.stderr)
+    print("", file=sys.stderr)
+    print("Fix this by:", file=sys.stderr)
+    print("1. Create a .env file in the project root", file=sys.stderr)
+    print("2. Copy .env.example to .env: cp .env.example .env", file=sys.stderr)
+    print("3. Fill in the required values (see .env.example for guidance)", file=sys.stderr)
+    print("=" * 60, file=sys.stderr)
+    sys.exit(1)  # Exit with error code 1 (prevents app from starting)
+
+# Validate JWT_SECRET strength (warn if using weak secret)
+jwt_secret = os.getenv("JWT_SECRET", "")
+if len(jwt_secret) < 32:
+    print("=" * 60, file=sys.stderr)
+    print("WARNING: JWT_SECRET is too short (< 32 characters)", file=sys.stderr)
+    print("=" * 60, file=sys.stderr)
+    print("For security, JWT secrets should be at least 32 characters.", file=sys.stderr)
+    print("Generate a secure secret:", file=sys.stderr)
+    print('  python -c "import secrets; print(secrets.token_urlsafe(32))"', file=sys.stderr)
+    print("=" * 60, file=sys.stderr)
+    # Don't exit, just warn (allows development to continue)
+
 # FastAPI - modern web framework for building APIs
 from fastapi import FastAPI
 

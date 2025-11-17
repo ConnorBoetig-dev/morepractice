@@ -68,6 +68,19 @@ def get_user_by_email(db: Session, email: str) -> User | None:
     # Execute database SELECT query
     return db.query(User).filter(User.email == email).first()  # ← Returns User or None
 
+# GET USER BY ID SERVICE
+# Called by: app/services/auth_service.py → update_user()
+# Called by: app/utils/auth.py → get_current_user() (for JWT token validation)
+def get_user_by_id(db: Session, user_id: int) -> User | None:
+    """
+    DATABASE OPERATION: Query user by ID (primary key)
+
+    SQL executed: SELECT * FROM users WHERE id = 123 LIMIT 1
+    Returns: User model if found, None if not found
+    """
+    # Execute database SELECT query
+    return db.query(User).filter(User.id == user_id).first()  # ← Returns User or None
+
 # UPDATE USER SERVICE
 # Called by: (not currently used - placeholder for future features)
 def update_user(db: Session, user_id: int, updates: dict) -> User:

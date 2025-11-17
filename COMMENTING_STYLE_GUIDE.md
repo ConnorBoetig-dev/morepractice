@@ -360,6 +360,159 @@ def create_user(...):
 
 ---
 
+## Security and Environment Variables
+
+### Environment Variables (.env)
+
+**Critical Rule:** NEVER hardcode secrets, API keys, or credentials in code files.
+
+#### What Belongs in .env
+```python
+# ❌ NEVER DO THIS - hardcoded secrets in code
+JWT_SECRET = "my_secret_key_123"
+DATABASE_URL = "postgresql://user:password@localhost/db"
+
+# ✅ ALWAYS DO THIS - load from environment
+import os
+JWT_SECRET = os.getenv("JWT_SECRET")
+DATABASE_URL = os.getenv("DATABASE_URL")
+```
+
+#### Environment Variable Loading
+Always load `.env` at the start of `main.py`:
+
+```python
+# Load environment variables from .env file before anything else
+# python-dotenv reads .env and makes variables available via os.getenv()
+from dotenv import load_dotenv
+load_dotenv()  # Must be called before importing modules that use env vars
+```
+
+#### Comment Style for Environment Variables
+```python
+# JWT Configuration - loaded from environment variables (.env file)
+# Environment variables are loaded in app/main.py via load_dotenv()
+SECRET_KEY = os.getenv("JWT_SECRET", "fallback_dev_secret_key")  # ← Loaded from .env
+ALGORITHM = "HS256"  # HMAC with SHA-256 signing algorithm
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRATION_MINUTES", "15"))  # ← Loaded from .env
+```
+
+#### Security Comments
+Add these types of security-focused comments:
+
+```python
+# SECURITY: Never commit .env files to git (already in .gitignore)
+
+# SECURITY: JWT_SECRET must be kept secret - anyone with this can forge tokens
+
+# SECURITY: Hash password before storing - NEVER store plain text passwords!
+
+# SECURITY: Generic error message prevents email enumeration attacks
+
+# SECURITY: Validate required env vars at startup to fail fast
+```
+
+#### Environment Variable Validation
+Always validate critical environment variables at startup:
+
+```python
+# ============================================
+# VALIDATE REQUIRED ENVIRONMENT VARIABLES
+# ============================================
+# SECURITY: Fail fast if critical environment variables are missing
+# This prevents the app from running with insecure fallback values
+import os
+import sys
+
+REQUIRED_ENV_VARS = [
+    "DATABASE_URL",    # PostgreSQL connection string
+    "JWT_SECRET",      # Secret key for signing JWT tokens
+]
+
+missing_vars = [var for var in REQUIRED_ENV_VARS if not os.getenv(var)]
+if missing_vars:
+    print(f"ERROR: Missing required environment variables: {missing_vars}", file=sys.stderr)
+    sys.exit(1)  # Exit with error code 1 (prevents app from starting)
+```
+
+### Security Best Practices for Learning
+
+Since this is a **learning project**, comments should teach security concepts:
+
+#### Password Security
+```python
+# Hash password before storing (call utility function)
+# NEVER store plain text passwords in database!
+# Bcrypt is intentionally slow to resist brute-force attacks
+hashed = hash_password(password)  # ← Calls app/utils/auth.py
+```
+
+#### JWT Token Security
+```python
+# Create JWT token - utility function creates signed token with 15min expiration
+# Token structure:
+# - Header: {"alg": "HS256", "typ": "JWT"}
+# - Payload: {"user_id": 123, "exp": 1699999999}
+# - Signature: HMAC-SHA256(header + payload, SECRET_KEY)
+token = create_access_token({"user_id": user.id})
+```
+
+#### Database Credentials
+```python
+# PostgreSQL connection string format:
+# postgresql://username:password@host:port/database
+#
+# Development: Default postgres user is OK for learning
+# Production: Create dedicated user with limited permissions
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/billings")
+```
+
+#### Docker Compose Security
+```yaml
+environment:
+  # Load credentials from .env file (with fallback defaults for development)
+  # Security: Change these in production! See .env.example
+  POSTGRES_USER: ${POSTGRES_USER:-postgres}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+```
+
+### .env.example Template
+
+Every project should have a `.env.example` file documenting required variables:
+
+```bash
+# ==============================================
+# ENVIRONMENT CONFIGURATION TEMPLATE
+# ==============================================
+# Setup Instructions:
+# 1. Copy this file: cp .env.example .env
+# 2. Generate JWT secret: python -c "import secrets; print(secrets.token_urlsafe(32))"
+# 3. Replace placeholder values with your actual configuration
+# 4. NEVER commit .env to git (it's already in .gitignore)
+# ==============================================
+
+# Database connection string
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/billings
+
+# JWT secret key (generate a unique secret for each environment!)
+JWT_SECRET=your-generated-secret-key-here-minimum-32-characters
+
+# JWT expiration time in minutes
+JWT_EXPIRATION_MINUTES=15
+```
+
+### Security Comment Checklist
+
+When writing code that involves security, include comments explaining:
+
+- ✅ **Why** secrets are loaded from environment variables
+- ✅ **What** happens if a secret is compromised
+- ✅ **How** to generate secure secrets
+- ✅ **Where** environment variables are loaded (.env file)
+- ✅ **When** to use different values (development vs production)
+
+---
+
 ## Example Prompt for Claude
 
 When asking Claude to add comments to new code in future conversations, use this prompt:
