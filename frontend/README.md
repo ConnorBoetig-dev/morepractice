@@ -306,13 +306,13 @@ allow_origins=[
 ✅ Input validation (client and server)
 ✅ Generic error messages (prevents email enumeration)
 ✅ XSS prevention (using textContent, not innerHTML)
+✅ Rate limiting (IP-based with slowapi)
 
 ### What's Missing (For Learning Simplicity)
 ⚠️ No refresh tokens (must re-login after 15 min)
 ⚠️ No token blacklist (tokens valid until expiration)
 ⚠️ localStorage instead of HttpOnly cookies
 ⚠️ No CSRF protection
-⚠️ No rate limiting
 ⚠️ No 2FA/MFA
 
 **For Production:** Consider these additional security measures!

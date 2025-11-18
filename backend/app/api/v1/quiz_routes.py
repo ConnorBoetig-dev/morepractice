@@ -8,8 +8,11 @@ Endpoints:
 - GET /api/v1/quiz/stats - Get quiz statistics
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
+
+# Import centralized rate limiter
+from app.utils.rate_limit import limiter, RATE_LIMITS
 
 from app.db.session import get_db
 from app.utils.auth import get_current_user_id
@@ -27,7 +30,9 @@ router = APIRouter(prefix="/quiz", tags=["quiz"])
     status_code=status.HTTP_201_CREATED,
     summary="Submit completed quiz"
 )
-def submit_quiz(
+@limiter.limit(RATE_LIMITS["quiz_submit"])  # 10/minute rate limit
+async def submit_quiz(
+    request: Request,
     submission: QuizSubmission,
     db: Session = Depends(get_db),
     current_user_id: int = Depends(get_current_user_id)
@@ -35,12 +40,15 @@ def submit_quiz(
     """
     Submit a completed quiz
 
+    **Rate limit:** 10 requests per minute per IP (prevents spam submissions)
+
     **Process:**
     1. Validate quiz submission data
     2. Save quiz attempt and all answers to database
     3. Calculate XP earned and check for level up
-    4. Check for newly unlocked achievements
-    5. Return comprehensive results
+    4. Update study streak automatically
+    5. Check for newly unlocked achievements
+    6. Return comprehensive results
 
     **Request Body:**
     ```json
@@ -82,6 +90,7 @@ def submit_quiz(
 
     **Authentication:** Requires valid JWT token
     """
+    # Apply rate limit: 10 quiz submissions per minute per IP
     try:
         return quiz_controller.submit_quiz(db, current_user_id, submission)
     except Exception as e:
@@ -96,7 +105,9 @@ def submit_quiz(
     response_model=QuizHistoryResponse,
     summary="Get quiz attempt history"
 )
-def get_quiz_history(
+@limiter.limit(RATE_LIMITS["standard"])  # 30/minute rate limit
+async def get_quiz_history(
+    request: Request,
     limit: int = 20,
     offset: int = 0,
     exam_type: str = None,
@@ -105,6 +116,8 @@ def get_quiz_history(
 ):
     """
     Get user's quiz attempt history with pagination
+
+    **Rate limit:** 30 requests per minute per IP
 
     **Query Parameters:**
     - `limit`: Maximum number of attempts to return (default: 20, max: 100)
@@ -137,6 +150,7 @@ def get_quiz_history(
 
     **Authentication:** Requires valid JWT token
     """
+    # Apply rate limit: 30 requests per minute per IP
     # Validate limit
     if limit > 100:
         raise HTTPException(
@@ -179,12 +193,16 @@ def get_quiz_history(
     "/stats",
     summary="Get quiz statistics"
 )
-def get_quiz_stats(
+@limiter.limit(RATE_LIMITS["standard"])  # 30/minute rate limit
+async def get_quiz_stats(
+    request: Request,
     db: Session = Depends(get_db),
     current_user_id: int = Depends(get_current_user_id)
 ):
     """
     Get aggregated quiz statistics for current user
+
+    **Rate limit:** 30 requests per minute per IP
 
     **Response:**
     ```json
@@ -208,6 +226,7 @@ def get_quiz_stats(
 
     **Authentication:** Requires valid JWT token
     """
+    # Apply rate limit: 30 requests per minute per IP
     try:
         return quiz_controller.get_quiz_stats(db, current_user_id)
     except Exception as e:

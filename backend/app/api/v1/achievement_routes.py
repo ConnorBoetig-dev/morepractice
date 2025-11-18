@@ -4,8 +4,11 @@ Achievement API Routes
 Endpoints for viewing achievements and user progress.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
+
+# Import centralized rate limiter
+from app.utils.rate_limit import limiter, RATE_LIMITS
 from typing import List
 
 from app.db.session import get_db
@@ -25,9 +28,12 @@ router = APIRouter(
 
 
 @router.get("", response_model=List[AchievementPublic])
-def get_achievements(db: Session = Depends(get_db)):
+@limiter.limit(RATE_LIMITS["standard"])  # 30/minute rate limit
+async def get_achievements(request: Request, db: Session = Depends(get_db)):
     """
     Get all non-hidden achievements (public endpoint)
+
+    **Rate limit:** 30 requests per minute per IP
 
     No authentication required.
 
@@ -37,6 +43,7 @@ def get_achievements(db: Session = Depends(get_db)):
         - criteria_type, criteria_value, xp_reward
         - is_hidden (only non-hidden achievements returned)
     """
+    # Apply rate limit: 30 requests per minute per IP
     try:
         # Get achievements without user context (public view)
         achievements_data = achievement_service.get_all_achievements(db, user_id=None)
@@ -52,12 +59,16 @@ def get_achievements(db: Session = Depends(get_db)):
 
 
 @router.get("/me", response_model=List[AchievementWithProgress])
-def get_my_achievements(
+@limiter.limit(RATE_LIMITS["standard"])  # 30/minute rate limit
+async def get_my_achievements(
+    request: Request,
     db: Session = Depends(get_db),
     current_user_id: int = Depends(get_current_user_id)
 ):
     """
     Get all achievements with user's progress
+
+    **Rate limit:** 30 requests per minute per IP
 
     Requires authentication.
 
@@ -69,6 +80,7 @@ def get_my_achievements(
         - progress_percentage: Progress as percentage (0-100)
         - Hidden achievements are only shown if earned
     """
+    # Apply rate limit: 30 requests per minute per IP
     try:
         # Get achievements with user progress
         achievements_data = achievement_service.get_all_achievements(db, current_user_id)
@@ -84,12 +96,16 @@ def get_my_achievements(
 
 
 @router.get("/earned", response_model=List[AchievementEarned])
-def get_earned_achievements(
+@limiter.limit(RATE_LIMITS["standard"])  # 30/minute rate limit
+async def get_earned_achievements(
+    request: Request,
     db: Session = Depends(get_db),
     current_user_id: int = Depends(get_current_user_id)
 ):
     """
     Get only the achievements the user has earned
+
+    **Rate limit:** 30 requests per minute per IP
 
     Requires authentication.
 
@@ -101,6 +117,7 @@ def get_earned_achievements(
 
     Sorted by most recently earned first.
     """
+    # Apply rate limit: 30 requests per minute per IP
     try:
         # Get user's earned achievements
         earned_data = achievement_service.get_user_achievements(db, current_user_id)
@@ -116,12 +133,16 @@ def get_earned_achievements(
 
 
 @router.get("/stats", response_model=AchievementStats)
-def get_achievement_stats(
+@limiter.limit(RATE_LIMITS["standard"])  # 30/minute rate limit
+async def get_achievement_stats(
+    request: Request,
     db: Session = Depends(get_db),
     current_user_id: int = Depends(get_current_user_id)
 ):
     """
     Get user's achievement statistics
+
+    **Rate limit:** 30 requests per minute per IP
 
     Requires authentication.
 
@@ -133,6 +154,7 @@ def get_achievement_stats(
             "total_achievement_xp": Total XP earned from achievements
         }
     """
+    # Apply rate limit: 30 requests per minute per IP
     try:
         # Get all achievements
         from app.models.gamification import Achievement, UserAchievement

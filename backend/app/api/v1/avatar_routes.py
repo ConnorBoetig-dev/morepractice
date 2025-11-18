@@ -4,8 +4,11 @@ Avatar API Routes
 Endpoints for viewing and managing user avatars.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
+
+# Import centralized rate limiter
+from app.utils.rate_limit import limiter, RATE_LIMITS
 from typing import List
 
 from app.db.session import get_db
@@ -29,9 +32,12 @@ router = APIRouter(
 
 
 @router.get("", response_model=List[AvatarPublic])
-def get_avatars(db: Session = Depends(get_db)):
+@limiter.limit(RATE_LIMITS["standard"])  # 30/minute rate limit
+async def get_avatars(request: Request, db: Session = Depends(get_db)):
     """
     Get all avatars (public endpoint)
+
+    **Rate limit:** 30 requests per minute per IP
 
     No authentication required.
 
@@ -40,6 +46,7 @@ def get_avatars(db: Session = Depends(get_db)):
         - id, name, description, image_url, rarity
         - is_default: Whether avatar is available to all users
     """
+    # Apply rate limit: 30 requests per minute per IP
     try:
         # Get avatars without user context (public view)
         avatars_data = avatar_service.get_all_avatars(db, user_id=None)
@@ -55,12 +62,16 @@ def get_avatars(db: Session = Depends(get_db)):
 
 
 @router.get("/me", response_model=List[AvatarWithStatus])
-def get_my_avatars(
+@limiter.limit(RATE_LIMITS["standard"])  # 30/minute rate limit
+async def get_my_avatars(
+    request: Request,
     db: Session = Depends(get_db),
     current_user_id: int = Depends(get_current_user_id)
 ):
     """
     Get all avatars with user's unlock status
+
+    **Rate limit:** 30 requests per minute per IP
 
     Requires authentication.
 
@@ -74,6 +85,7 @@ def get_my_avatars(
         - required_achievement_id: Achievement needed to unlock (null if default)
         - required_achievement_name: Name of required achievement (null if default)
     """
+    # Apply rate limit: 30 requests per minute per IP
     try:
         # Get avatars with user status
         avatars_data = avatar_service.get_all_avatars(db, current_user_id)
@@ -89,12 +101,16 @@ def get_my_avatars(
 
 
 @router.get("/unlocked", response_model=List[AvatarUnlocked])
-def get_unlocked_avatars(
+@limiter.limit(RATE_LIMITS["standard"])  # 30/minute rate limit
+async def get_unlocked_avatars(
+    request: Request,
     db: Session = Depends(get_db),
     current_user_id: int = Depends(get_current_user_id)
 ):
     """
     Get only the avatars the user has unlocked
+
+    **Rate limit:** 30 requests per minute per IP
 
     Requires authentication.
 
@@ -106,6 +122,7 @@ def get_unlocked_avatars(
 
     Sorted by most recently unlocked first.
     """
+    # Apply rate limit: 30 requests per minute per IP
     try:
         # Get user's unlocked avatars
         unlocked_data = avatar_service.get_user_unlocked_avatars(db, current_user_id)
@@ -121,13 +138,17 @@ def get_unlocked_avatars(
 
 
 @router.post("/select", response_model=SelectAvatarResponse)
-def select_avatar(
-    request: SelectAvatarRequest,
+@limiter.limit(RATE_LIMITS["standard"])  # 30/minute rate limit
+async def select_avatar(
+    request: Request,
+    payload: SelectAvatarRequest,
     db: Session = Depends(get_db),
     current_user_id: int = Depends(get_current_user_id)
 ):
     """
     Select/equip an avatar
+
+    **Rate limit:** 30 requests per minute per IP
 
     Requires authentication.
 
@@ -151,11 +172,13 @@ def select_avatar(
 
     Errors:
         - 400: Avatar not unlocked or doesn't exist
+        - 429: Too Many Requests - Rate limit exceeded
         - 500: Server error
     """
+    # Apply rate limit: 30 requests per minute per IP
     try:
         # Select the avatar (service will validate unlock status)
-        result_data = avatar_service.select_avatar(db, current_user_id, request.avatar_id)
+        result_data = avatar_service.select_avatar(db, current_user_id, payload.avatar_id)
 
         # Convert to Pydantic model
         result = SelectAvatarResponse(
@@ -178,12 +201,16 @@ def select_avatar(
 
 
 @router.get("/stats", response_model=AvatarStats)
-def get_avatar_stats(
+@limiter.limit(RATE_LIMITS["standard"])  # 30/minute rate limit
+async def get_avatar_stats(
+    request: Request,
     db: Session = Depends(get_db),
     current_user_id: int = Depends(get_current_user_id)
 ):
     """
     Get user's avatar collection statistics
+
+    **Rate limit:** 30 requests per minute per IP
 
     Requires authentication.
 
@@ -207,6 +234,7 @@ def get_avatar_stats(
             }
         }
     """
+    # Apply rate limit: 30 requests per minute per IP
     try:
         # Get avatar stats from service
         stats_data = avatar_service.get_avatar_stats(db, current_user_id)

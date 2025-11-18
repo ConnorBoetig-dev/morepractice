@@ -18,8 +18,9 @@ from app.schemas.quiz import (
     QuizHistoryResponse,
     QuizAttemptSummary
 )
-from app.services import quiz_service, achievement_service
+from app.services import quiz_service, achievement_service, profile_service
 from app.models.user import UserProfile
+from datetime import date
 
 
 def submit_quiz(db: Session, user_id: int, submission: QuizSubmission) -> QuizSubmissionResponse:
@@ -29,8 +30,13 @@ def submit_quiz(db: Session, user_id: int, submission: QuizSubmission) -> QuizSu
     Process:
     1. Save quiz attempt and answers (via service)
     2. Get updated user profile
-    3. Check for newly unlocked achievements (Phase 3)
-    4. Build comprehensive response
+    3. Update study streak automatically:
+       - First activity: start streak at 1
+       - Consecutive days: increment streak
+       - Same day: no change
+       - Missed days: reset to 1
+    4. Check for newly unlocked achievements (including streak-based)
+    5. Build comprehensive response
 
     Args:
         db: Database session
@@ -51,7 +57,38 @@ def submit_quiz(db: Session, user_id: int, submission: QuizSubmission) -> QuizSu
     # Get updated user profile for total XP
     profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
 
-    # Check for newly unlocked achievements
+    # Update study streak (automatic streak tracking)
+    today = date.today()
+    last_activity = profile.last_activity_date
+    current_streak = profile.study_streak_current
+    longest_streak = profile.study_streak_longest
+
+    # Calculate new streak
+    if last_activity is None:
+        # First activity ever - start streak at 1
+        current_streak = 1
+    elif last_activity == today:
+        # Already studied today - no change to streak
+        pass
+    elif (today - last_activity).days == 1:
+        # Studied yesterday - increment streak (consecutive days)
+        current_streak += 1
+    else:
+        # Missed a day (or more) - reset streak to 1
+        current_streak = 1
+
+    # Update longest streak if current is higher
+    if current_streak > longest_streak:
+        longest_streak = current_streak
+
+    # Persist streak and activity date to database
+    profile_service.update_last_activity(db, user_id, today)
+    profile_service.update_streak(db, user_id, current_streak, longest_streak)
+
+    # Refresh profile to get updated streak values
+    db.refresh(profile)
+
+    # Check for newly unlocked achievements (including streak-based)
     achievements_unlocked = achievement_service.check_and_award_achievements(
         db, user_id, exam_type=submission.exam_type
     )

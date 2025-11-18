@@ -1,5 +1,9 @@
 import { ENDPOINTS } from './config.js';
 import { apiRequest } from './api.js';
+import { redirectIfNotAuthenticated } from './auth.js';
+
+// Protect this page - require authentication
+redirectIfNotAuthenticated();
 
 const loadingDiv = document.getElementById('loading');
 const errorDiv = document.getElementById('error-message');

@@ -4,9 +4,12 @@ Leaderboard API Routes
 Endpoints for viewing various leaderboards and user rankings.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
 from typing import Optional
+
+# Import centralized rate limiter
+from app.utils.rate_limit import limiter, RATE_LIMITS
 
 from app.db.session import get_db
 from app.utils.auth import get_current_user_id
@@ -27,7 +30,9 @@ router = APIRouter(
 
 
 @router.get("/xp", response_model=XPLeaderboardResponse)
-def get_xp_leaderboard(
+@limiter.limit(RATE_LIMITS["leaderboard"])  # 20/minute rate limit
+async def get_xp_leaderboard(
+    request: Request,
     limit: int = Query(100, ge=1, le=500, description="Number of top users to return"),
     time_period: str = Query("all_time", regex="^(all_time|monthly|weekly)$", description="Time period filter"),
     db: Session = Depends(get_db),
@@ -36,6 +41,8 @@ def get_xp_leaderboard(
     """
     Get leaderboard sorted by total XP
 
+    **Rate limit:** 20 requests per minute per IP (protects expensive database queries)
+
     Query Parameters:
         - limit: Number of top users to return (1-500, default 100)
         - time_period: Time period filter (all_time, monthly, weekly)
@@ -43,6 +50,7 @@ def get_xp_leaderboard(
     Returns:
         Leaderboard with top users by XP and current user's entry if authenticated
     """
+
     try:
         # Note: Authentication is optional - if provided, include user's entry
         data = leaderboard_service.get_xp_leaderboard(
@@ -67,7 +75,9 @@ def get_xp_leaderboard(
 
 
 @router.get("/quiz-count", response_model=QuizCountLeaderboardResponse)
-def get_quiz_count_leaderboard(
+@limiter.limit(RATE_LIMITS["leaderboard"])  # 20/minute rate limit
+async def get_quiz_count_leaderboard(
+    request: Request,
     limit: int = Query(100, ge=1, le=500, description="Number of top users to return"),
     time_period: str = Query("all_time", regex="^(all_time|monthly|weekly)$", description="Time period filter"),
     db: Session = Depends(get_db),
@@ -76,6 +86,8 @@ def get_quiz_count_leaderboard(
     """
     Get leaderboard sorted by total quizzes completed
 
+    **Rate limit:** 20 requests per minute per IP (protects expensive database queries)
+
     Query Parameters:
         - limit: Number of top users to return (1-500, default 100)
         - time_period: Time period filter (all_time, monthly, weekly)
@@ -83,6 +95,7 @@ def get_quiz_count_leaderboard(
     Returns:
         Leaderboard with top users by quiz count and current user's entry if authenticated
     """
+
     try:
         data = leaderboard_service.get_quiz_count_leaderboard(
             db,
@@ -106,7 +119,9 @@ def get_quiz_count_leaderboard(
 
 
 @router.get("/accuracy", response_model=AccuracyLeaderboardResponse)
-def get_accuracy_leaderboard(
+@limiter.limit(RATE_LIMITS["leaderboard"])  # 20/minute rate limit
+async def get_accuracy_leaderboard(
+    request: Request,
     limit: int = Query(100, ge=1, le=500, description="Number of top users to return"),
     minimum_quizzes: int = Query(10, ge=1, le=100, description="Minimum quizzes to qualify"),
     time_period: str = Query("all_time", regex="^(all_time|monthly|weekly)$", description="Time period filter"),
@@ -115,6 +130,8 @@ def get_accuracy_leaderboard(
 ):
     """
     Get leaderboard sorted by average accuracy
+
+    **Rate limit:** 20 requests per minute per IP (protects expensive database queries)
 
     Only includes users with minimum number of quizzes completed.
 
@@ -126,6 +143,7 @@ def get_accuracy_leaderboard(
     Returns:
         Leaderboard with top users by accuracy and current user's entry if authenticated and qualified
     """
+
     try:
         data = leaderboard_service.get_accuracy_leaderboard(
             db,
@@ -151,13 +169,17 @@ def get_accuracy_leaderboard(
 
 
 @router.get("/streak", response_model=StreakLeaderboardResponse)
-def get_streak_leaderboard(
+@limiter.limit(RATE_LIMITS["leaderboard"])  # 20/minute rate limit
+async def get_streak_leaderboard(
+    request: Request,
     limit: int = Query(100, ge=1, le=500, description="Number of top users to return"),
     db: Session = Depends(get_db),
     current_user_id: Optional[int] = None
 ):
     """
     Get leaderboard sorted by current study streak
+
+    **Rate limit:** 20 requests per minute per IP (protects expensive database queries)
 
     Only includes users with active streaks (streak > 0).
 
@@ -167,6 +189,7 @@ def get_streak_leaderboard(
     Returns:
         Leaderboard with top users by current streak and current user's entry if authenticated and has active streak
     """
+
     try:
         data = leaderboard_service.get_streak_leaderboard(
             db,
@@ -189,7 +212,9 @@ def get_streak_leaderboard(
 
 
 @router.get("/exam/{exam_type}", response_model=ExamSpecificLeaderboardResponse)
-def get_exam_specific_leaderboard(
+@limiter.limit(RATE_LIMITS["leaderboard"])  # 20/minute rate limit
+async def get_exam_specific_leaderboard(
+    request: Request,
     exam_type: str,
     limit: int = Query(100, ge=1, le=500, description="Number of top users to return"),
     time_period: str = Query("all_time", regex="^(all_time|monthly|weekly)$", description="Time period filter"),
@@ -198,6 +223,8 @@ def get_exam_specific_leaderboard(
 ):
     """
     Get leaderboard for a specific exam type
+
+    **Rate limit:** 20 requests per minute per IP (protects expensive database queries)
 
     Sorted by number of quizzes completed for that exam.
 
@@ -211,6 +238,7 @@ def get_exam_specific_leaderboard(
     Returns:
         Leaderboard with top users for specific exam and current user's entry if authenticated
     """
+
     # Validate exam type
     valid_exam_types = ['security', 'network', 'a1101', 'a1102', 'a_plus_core_1', 'a_plus_core_2', 'network_plus', 'security_plus']
     if exam_type not in valid_exam_types:

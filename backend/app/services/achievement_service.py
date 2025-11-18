@@ -282,8 +282,8 @@ def get_all_achievements(db: Session, user_id: int = None) -> List[Dict[str, Any
                 "is_earned": is_earned,
                 "is_hidden": achievement.is_hidden,
                 "progress": progress,
-                "progress_percentage": (progress / achievement.criteria_value * 100)
-                                      if achievement.criteria_value > 0 else 100
+                "progress_percentage": min(100.0, (progress / achievement.criteria_value * 100))
+                                      if achievement.criteria_value > 0 else 100.0
             })
     else:
         # No user context - return all non-hidden achievements

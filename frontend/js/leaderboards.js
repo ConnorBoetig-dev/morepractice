@@ -5,10 +5,11 @@
 
 import { ENDPOINTS } from './config.js';
 import { apiRequest } from './api.js';
-import { redirectIfNotAuthenticated, removeToken } from './auth.js';
+import { removeToken, isAuthenticated } from './auth.js';
 import { formatNumber } from './utils.js';
 
-redirectIfNotAuthenticated();
+// Leaderboard is PUBLIC - no authentication required
+// Optional: Show user's position if they are logged in
 
 // DOM Elements
 const loading = document.getElementById('loading');
@@ -86,6 +87,7 @@ async function loadLeaderboard(type, examType = null) {
         const leaderboard = response.entries || [];
 
         console.log('✓ Loaded', leaderboard.length, 'entries');
+        console.log('📊 Leaderboard data:', leaderboard);
 
         if (leaderboard.length === 0) {
             loading.style.display = 'none';
@@ -94,8 +96,11 @@ async function loadLeaderboard(type, examType = null) {
         }
 
         // Render leaderboard
-        leaderboardContainer.innerHTML = renderLeaderboard(leaderboard, type);
+        const html = renderLeaderboard(leaderboard, type);
+        console.log('✓ Generated HTML:', html.substring(0, 200) + '...');
+        leaderboardContainer.innerHTML = html;
 
+        console.log('✓ Setting display to block');
         loading.style.display = 'none';
         leaderboardContainer.style.display = 'block';
 

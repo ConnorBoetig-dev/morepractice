@@ -33,95 +33,200 @@ def get_xp_leaderboard(
         dict: Leaderboard data with entries and current user entry
     """
 
-    # Build the query
-    query = db.query(
-        UserProfile.user_id,
-        UserProfile.xp,
-        UserProfile.level,
-        UserProfile.selected_avatar_id,
-        User.username
-    ).join(
-        User, UserProfile.user_id == User.id
-    )
+    # Calculate date filter for time-based XP
+    date_filter = None
+    if time_period == "weekly":
+        date_filter = datetime.utcnow() - timedelta(days=7)
+    elif time_period == "monthly":
+        date_filter = datetime.utcnow() - timedelta(days=30)
 
-    # Filter by time period if not all_time
-    # Note: For time-based XP we'd need a quiz_attempts filter
-    # For now, we only support all_time XP leaderboard
+    # For all_time, use UserProfile.xp (total accumulated XP)
+    if time_period == "all_time":
+        # Build the query using total XP from UserProfile
+        query = db.query(
+            UserProfile.user_id,
+            UserProfile.xp,
+            UserProfile.level,
+            UserProfile.selected_avatar_id,
+            User.username
+        ).join(
+            User, UserProfile.user_id == User.id
+        ).order_by(desc(UserProfile.xp))
 
-    # Order by XP descending
-    query = query.order_by(desc(UserProfile.xp))
+        # Get top N entries
+        top_entries = query.limit(limit).all()
 
-    # Get top N entries
-    top_entries = query.limit(limit).all()
+        # Build entries
+        entries = []
+        for rank, (user_id, xp, level, avatar_id, username) in enumerate(top_entries, start=1):
+            avatar_url = None
+            if avatar_id:
+                avatar = db.query(Avatar).filter(Avatar.id == avatar_id).first()
+                if avatar:
+                    avatar_url = avatar.image_url
 
-    # Get avatar URLs for top entries
-    entries = []
-    for rank, (user_id, xp, level, avatar_id, username) in enumerate(top_entries, start=1):
-        avatar_url = None
-        if avatar_id:
-            avatar = db.query(Avatar).filter(Avatar.id == avatar_id).first()
-            if avatar:
-                avatar_url = avatar.image_url
+            entries.append({
+                "rank": rank,
+                "user_id": user_id,
+                "username": username,
+                "avatar_url": avatar_url,
+                "score": xp,
+                "level": level,
+                "is_current_user": user_id == current_user_id
+            })
 
-        entries.append({
-            "rank": rank,
-            "user_id": user_id,
-            "username": username,
-            "avatar_url": avatar_url,
-            "score": xp,  # XP is the score for this leaderboard
-            "level": level,
-            "is_current_user": user_id == current_user_id
-        })
+        # Get current user's entry if not in top N
+        current_user_entry = None
+        if current_user_id:
+            user_in_top = any(entry["user_id"] == current_user_id for entry in entries)
 
-    # Get current user's entry if not in top N
-    current_user_entry = None
-    if current_user_id:
-        # Check if user is already in top entries
-        user_in_top = any(entry["user_id"] == current_user_id for entry in entries)
+            if not user_in_top:
+                # Calculate user's rank
+                user_rank = db.query(func.count()).filter(
+                    UserProfile.xp > (
+                        db.query(UserProfile.xp).filter(
+                            UserProfile.user_id == current_user_id
+                        ).scalar_subquery()
+                    )
+                ).scalar() + 1
 
-        if not user_in_top:
-            # Calculate user's rank
-            user_rank = db.query(func.count()).filter(
-                UserProfile.xp > (
-                    db.query(UserProfile.xp).filter(
-                        UserProfile.user_id == current_user_id
-                    ).scalar_subquery()
-                )
-            ).scalar() + 1
+                # Get user data
+                user_data = db.query(
+                    UserProfile.user_id,
+                    UserProfile.xp,
+                    UserProfile.level,
+                    UserProfile.selected_avatar_id,
+                    User.username
+                ).join(
+                    User, UserProfile.user_id == User.id
+                ).filter(
+                    UserProfile.user_id == current_user_id
+                ).first()
 
-            # Get user data
-            user_data = db.query(
-                UserProfile.user_id,
-                UserProfile.xp,
-                UserProfile.level,
-                UserProfile.selected_avatar_id,
-                User.username
-            ).join(
-                User, UserProfile.user_id == User.id
-            ).filter(
-                UserProfile.user_id == current_user_id
-            ).first()
+                if user_data:
+                    user_id, xp, level, avatar_id, username = user_data
+                    avatar_url = None
+                    if avatar_id:
+                        avatar = db.query(Avatar).filter(Avatar.id == avatar_id).first()
+                        if avatar:
+                            avatar_url = avatar.image_url
 
-            if user_data:
-                user_id, xp, level, avatar_id, username = user_data
-                avatar_url = None
-                if avatar_id:
-                    avatar = db.query(Avatar).filter(Avatar.id == avatar_id).first()
-                    if avatar:
-                        avatar_url = avatar.image_url
+                    current_user_entry = {
+                        "rank": user_rank,
+                        "user_id": user_id,
+                        "username": username,
+                        "avatar_url": avatar_url,
+                        "score": xp,
+                        "level": level,
+                        "is_current_user": True
+                    }
 
-                current_user_entry = {
-                    "rank": user_rank,
-                    "user_id": user_id,
-                    "username": username,
-                    "avatar_url": avatar_url,
-                    "score": xp,
-                    "level": level,
-                    "is_current_user": True
-                }
+        total_users = db.query(UserProfile).count()
 
-    # Get total user count
-    total_users = db.query(UserProfile).count()
+    else:
+        # For weekly/monthly, sum XP earned from quiz_attempts within time period
+        query = db.query(
+            QuizAttempt.user_id,
+            func.sum(QuizAttempt.xp_earned).label('period_xp'),
+            User.username,
+            UserProfile.level,
+            UserProfile.selected_avatar_id
+        ).join(
+            User, QuizAttempt.user_id == User.id
+        ).join(
+            UserProfile, QuizAttempt.user_id == UserProfile.user_id
+        ).filter(
+            QuizAttempt.completed_at >= date_filter
+        ).group_by(
+            QuizAttempt.user_id,
+            User.username,
+            UserProfile.level,
+            UserProfile.selected_avatar_id
+        ).order_by(desc('period_xp'))
+
+        # Get top N entries
+        top_entries = query.limit(limit).all()
+
+        # Build entries
+        entries = []
+        for rank, (user_id, period_xp, username, level, avatar_id) in enumerate(top_entries, start=1):
+            avatar_url = None
+            if avatar_id:
+                avatar = db.query(Avatar).filter(Avatar.id == avatar_id).first()
+                if avatar:
+                    avatar_url = avatar.image_url
+
+            entries.append({
+                "rank": rank,
+                "user_id": user_id,
+                "username": username,
+                "avatar_url": avatar_url,
+                "score": period_xp or 0,
+                "level": level,
+                "is_current_user": user_id == current_user_id
+            })
+
+        # Get current user's entry if not in top N
+        current_user_entry = None
+        if current_user_id:
+            user_in_top = any(entry["user_id"] == current_user_id for entry in entries)
+
+            if not user_in_top:
+                # Get user's XP for this period
+                user_xp_query = db.query(
+                    func.sum(QuizAttempt.xp_earned).label('period_xp')
+                ).filter(
+                    and_(
+                        QuizAttempt.user_id == current_user_id,
+                        QuizAttempt.completed_at >= date_filter
+                    )
+                ).scalar() or 0
+
+                if user_xp_query > 0:
+                    # Calculate rank
+                    rank_subquery = db.query(QuizAttempt.user_id).filter(
+                        QuizAttempt.completed_at >= date_filter
+                    ).group_by(QuizAttempt.user_id).having(
+                        func.sum(QuizAttempt.xp_earned) > user_xp_query
+                    )
+
+                    user_rank = db.query(func.count(func.distinct(QuizAttempt.user_id))).filter(
+                        QuizAttempt.user_id.in_(rank_subquery.subquery())
+                    ).scalar() + 1
+
+                    # Get user data
+                    user_data = db.query(
+                        User.username,
+                        UserProfile.level,
+                        UserProfile.selected_avatar_id
+                    ).join(
+                        UserProfile, User.id == UserProfile.user_id
+                    ).filter(
+                        User.id == current_user_id
+                    ).first()
+
+                    if user_data:
+                        username, level, avatar_id = user_data
+                        avatar_url = None
+                        if avatar_id:
+                            avatar = db.query(Avatar).filter(Avatar.id == avatar_id).first()
+                            if avatar:
+                                avatar_url = avatar.image_url
+
+                        current_user_entry = {
+                            "rank": user_rank,
+                            "user_id": current_user_id,
+                            "username": username,
+                            "avatar_url": avatar_url,
+                            "score": user_xp_query,
+                            "level": level,
+                            "is_current_user": True
+                        }
+
+        # Get total users with XP in this period
+        total_users = db.query(func.count(func.distinct(QuizAttempt.user_id))).filter(
+            QuizAttempt.completed_at >= date_filter
+        ).scalar() or 0
 
     return {
         "entries": entries,
@@ -398,8 +503,7 @@ def get_accuracy_leaderboard(
                             avatar_url = avatar.image_url
 
                     # Calculate rank (number of users with better accuracy + 1)
-                    # This is complex - simplified for now
-                    rank_query = db.query(func.count(func.distinct(QuizAttempt.user_id))).group_by(
+                    rank_subquery = db.query(QuizAttempt.user_id).group_by(
                         QuizAttempt.user_id
                     ).having(
                         and_(
@@ -408,8 +512,14 @@ def get_accuracy_leaderboard(
                         )
                     )
 
-                    # Simplified rank calculation
-                    user_rank = len([e for e in entries]) + 1
+                    # Apply time filter to rank query if needed
+                    if date_filter:
+                        rank_subquery = rank_subquery.filter(QuizAttempt.completed_at >= date_filter)
+
+                    # Count users with better accuracy
+                    user_rank = db.query(func.count(func.distinct(QuizAttempt.user_id))).filter(
+                        QuizAttempt.user_id.in_(rank_subquery.subquery())
+                    ).scalar() + 1
 
                     current_user_entry = {
                         "rank": user_rank,
@@ -421,18 +531,17 @@ def get_accuracy_leaderboard(
                         "is_current_user": True
                     }
 
-    # Get total qualified users
-    total_query = db.query(func.count(func.distinct(QuizAttempt.user_id))).group_by(
-        QuizAttempt.user_id
-    ).having(func.count(QuizAttempt.id) >= minimum_quizzes)
+    # Get total qualified users (with time filter if applicable)
+    total_query = db.query(QuizAttempt.user_id).group_by(QuizAttempt.user_id).having(
+        func.count(QuizAttempt.id) >= minimum_quizzes
+    )
 
+    # Apply time filter
     if date_filter:
         total_query = total_query.filter(QuizAttempt.completed_at >= date_filter)
 
     # Count the groups
-    total_users = db.query(QuizAttempt.user_id).group_by(QuizAttempt.user_id).having(
-        func.count(QuizAttempt.id) >= minimum_quizzes
-    ).count()
+    total_users = total_query.count()
 
     return {
         "entries": entries,
@@ -666,18 +775,21 @@ def get_exam_specific_leaderboard(
                 if user_data:
                     username, level, avatar_id = user_data
 
-                    # Calculate rank
-                    rank_query = db.query(func.count(func.distinct(QuizAttempt.user_id))).filter(
+                    # Calculate rank (count users with more quizzes for this exam)
+                    rank_subquery = db.query(QuizAttempt.user_id).filter(
                         QuizAttempt.exam_type == exam_type
                     ).group_by(QuizAttempt.user_id).having(
                         func.count(QuizAttempt.id) > user_quiz_count
                     )
 
+                    # Apply time filter to rank query if needed
                     if date_filter:
-                        rank_query = rank_query.filter(QuizAttempt.completed_at >= date_filter)
+                        rank_subquery = rank_subquery.filter(QuizAttempt.completed_at >= date_filter)
 
-                    # Simplified rank
-                    user_rank = len(entries) + 1
+                    # Count users with more quizzes
+                    user_rank = db.query(func.count(func.distinct(QuizAttempt.user_id))).filter(
+                        QuizAttempt.user_id.in_(rank_subquery.subquery())
+                    ).scalar() + 1
 
                     avatar_url = None
                     if avatar_id:

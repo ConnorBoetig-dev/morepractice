@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaderboard - Billings Quiz Platform</title>
+    <link rel="stylesheet" href="css/leaderboard.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏆 Leaderboard</h1>
+            <div class="user-info" id="userInfo">
+                <span id="username">Loading...</span>
+                <button onclick="logout()" class="btn-logout">Logout</button>
+            </div>
+        </header>
+
+        <!-- Leaderboard Type Tabs -->
+        <div class="tabs">
+            <button class="tab active" data-type="xp" onclick="switchLeaderboard('xp')">
+                ⭐ XP
+            </button>
+            <button class="tab" data-type="quiz-count" onclick="switchLeaderboard('quiz-count')">
+                📊 Quiz Count
+            </button>
+            <button class="tab" data-type="accuracy" onclick="switchLeaderboard('accuracy')">
+                🎯 Accuracy
+            </button>
+            <button class="tab" data-type="streak" onclick="switchLeaderboard('streak')">
+                🔥 Streak
+            </button>
+            <button class="tab" data-type="exam" onclick="switchLeaderboard('exam')">
+                📚 By Exam
+            </button>
+        </div>
+
+        <!-- Time Period Filter (hidden for streak) -->
+        <div class="filters" id="filters">
+            <div class="filter-group">
+                <label>Time Period:</label>
+                <select id="timePeriod" onchange="loadLeaderboard()">
+                    <option value="all_time">All Time</option>
+                    <option value="monthly">This Month</option>
+                    <option value="weekly">This Week</option>
+                </select>
+            </div>
+
+            <!-- Exam Type Filter (only for exam leaderboard) -->
+            <div class="filter-group" id="examFilter" style="display: none;">
+                <label>Exam Type:</label>
+                <select id="examType" onchange="loadLeaderboard()">
+                    <option value="security">Security+</option>
+                    <option value="network">Network+</option>
+                    <option value="a1101">A+ Core 1</option>
+                    <option value="a1102">A+ Core 2</option>
+                </select>
+            </div>
+
+            <!-- Minimum Quizzes (only for accuracy) -->
+            <div class="filter-group" id="minQuizzesFilter" style="display: none;">
+                <label>Min Quizzes:</label>
+                <select id="minQuizzes" onchange="loadLeaderboard()">
+                    <option value="1">1+</option>
+                    <option value="5">5+</option>
+                    <option value="10" selected>10+</option>
+                    <option value="20">20+</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Stats Summary -->
+        <div class="stats-summary" id="statsSummary">
+            <div class="stat-card">
+                <span class="stat-label">Total Users</span>
+                <span class="stat-value" id="totalUsers">-</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Your Rank</span>
+                <span class="stat-value" id="yourRank">-</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Your Score</span>
+                <span class="stat-value" id="yourScore">-</span>
+            </div>
+        </div>
+
+        <!-- Leaderboard Table -->
+        <div class="leaderboard-container">
+            <div class="loading" id="loading">Loading leaderboard...</div>
+            <div class="error" id="error" style="display: none;"></div>
+
+            <table class="leaderboard-table" id="leaderboardTable" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Player</th>
+                        <th>Score</th>
+                        <th>Level</th>
+                    </tr>
+                </thead>
+                <tbody id="leaderboardBody">
+                    <!-- Entries will be populated here -->
+                </tbody>
+            </table>
+
+            <!-- Current User Entry (if not in top list) -->
+            <div class="current-user-entry" id="currentUserEntry" style="display: none;">
+                <div class="separator">
+                    <span>Your Position</span>
+                </div>
+                <table class="leaderboard-table">
+                    <tbody id="currentUserBody">
+                        <!-- Current user entry will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/leaderboard.js"></script>
+</body>
+</html>

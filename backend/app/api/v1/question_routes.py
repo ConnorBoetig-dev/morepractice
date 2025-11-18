@@ -7,8 +7,11 @@
 # Registered in: app/main.py
 # ================================================================
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
+
+# Import centralized rate limiter
+from app.utils.rate_limit import limiter, RATE_LIMITS
 
 # Import database session dependency
 # Defined in: app/db/session.py
@@ -53,7 +56,9 @@ router = APIRouter(
     summary="Get Available Exam Types",
     description="Returns a list of all exam types that have questions in the database"
 )
-def get_exams_route(
+@limiter.limit(RATE_LIMITS["standard"])  # 30/minute rate limit
+async def get_exams_route(
+    request: Request,
     db: Session = Depends(get_db)  # Database session injected by FastAPI
 ):
     """
@@ -62,6 +67,7 @@ def get_exams_route(
     HTTP Method: GET
     URL: /api/v1/questions/exams
     Authentication: Not required
+    **Rate limit:** 30 requests per minute per IP
 
     Request:
         No parameters required
@@ -74,6 +80,7 @@ def get_exams_route(
 
     Response Codes:
         200: Success - Returns list of exam types
+        429: Too Many Requests - Rate limit exceeded
         500: Server error - Database connection failed
 
     Example Usage:
@@ -86,12 +93,14 @@ def get_exams_route(
 
     Implementation Flow:
         1. FastAPI injects database session via Depends(get_db)
-        2. Call controller to orchestrate business logic
-        3. Controller calls service to query database
-        4. Service executes: SELECT DISTINCT exam_type FROM questions
-        5. Response automatically validated by Pydantic schema
-        6. FastAPI returns JSON response
+        2. Rate limiter checks if IP has exceeded limit
+        3. Call controller to orchestrate business logic
+        4. Controller calls service to query database
+        5. Service executes: SELECT DISTINCT exam_type FROM questions
+        6. Response automatically validated by Pydantic schema
+        7. FastAPI returns JSON response
     """
+    # Apply rate limit: 30 requests per minute per IP
     # Call controller to handle business logic
     # Controller orchestrates: Service → Database → Response formatting
     return question_controller.get_exams_controller(db)
@@ -111,7 +120,9 @@ def get_exams_route(
     summary="Get Random Quiz Questions",
     description="Returns N random questions for a specific exam type"
 )
-def get_quiz_route(
+@limiter.limit(RATE_LIMITS["standard"])  # 30/minute rate limit
+async def get_quiz_route(
+    request: Request,
     exam_type: str = Query(
         ...,  # Required parameter (no default)
         description="Exam type to generate quiz for",
@@ -132,6 +143,7 @@ def get_quiz_route(
     HTTP Method: GET
     URL: /api/v1/questions/quiz?exam_type=security&count=30
     Authentication: Not required
+    **Rate limit:** 30 requests per minute per IP
 
     Query Parameters:
         exam_type (string, required):
@@ -175,6 +187,7 @@ def get_quiz_route(
         200: Success - Returns quiz with random questions
         400: Bad Request - Invalid count (< 1 or > 100)
         404: Not Found - Exam type doesn't exist
+        429: Too Many Requests - Rate limit exceeded
         500: Server error - Database connection failed
 
     Example Usage:
@@ -193,15 +206,16 @@ def get_quiz_route(
 
     Implementation Flow:
         1. FastAPI validates query parameters (exam_type, count)
-        2. FastAPI injects database session via Depends(get_db)
-        3. Call controller to orchestrate quiz generation
-        4. Controller validates exam type exists (404 if not)
-        5. Controller validates count is within limits (400 if not)
-        6. Controller calls service to get random questions
-        7. Service executes: SELECT * FROM questions WHERE exam_type = ? ORDER BY RANDOM() LIMIT ?
-        8. Controller formats response with metadata
-        9. Response automatically validated by Pydantic schema
-        10. FastAPI returns JSON response
+        2. Rate limiter checks if IP has exceeded limit
+        3. FastAPI injects database session via Depends(get_db)
+        4. Call controller to orchestrate quiz generation
+        5. Controller validates exam type exists (404 if not)
+        6. Controller validates count is within limits (400 if not)
+        7. Controller calls service to get random questions
+        8. Service executes: SELECT * FROM questions WHERE exam_type = ? ORDER BY RANDOM() LIMIT ?
+        9. Controller formats response with metadata
+        10. Response automatically validated by Pydantic schema
+        11. FastAPI returns JSON response
 
     Edge Cases Handled:
         - Exam type doesn't exist → 404 with helpful error
@@ -209,6 +223,7 @@ def get_quiz_route(
         - Count < 1 → 400 Bad Request
         - Count > 100 → 400 Bad Request (enforced by Query validator)
     """
+    # Apply rate limit: 30 requests per minute per IP
     # Call controller to handle quiz generation logic
     # Controller orchestrates:
     #   1. Validation (exam exists, count valid)

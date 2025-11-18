@@ -1,6 +1,9 @@
 import { ENDPOINTS } from './config.js';
 import { apiRequest } from './api.js';
-import { getToken } from './auth.js';
+import { getToken, redirectIfNotAuthenticated } from './auth.js';
+
+// Protect this page - require authentication
+redirectIfNotAuthenticated();
 
 const quizState = {
     examType: null,

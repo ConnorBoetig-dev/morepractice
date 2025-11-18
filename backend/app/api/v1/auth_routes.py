@@ -2,10 +2,13 @@
 # Routes do NOT have business logic or database access
 
 # FastAPI imports - for creating API routes
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 
 # SQLAlchemy Session type - represents a database connection
 from sqlalchemy.orm import Session
+
+# Import centralized rate limiter
+from app.utils.rate_limit import limiter, RATE_LIMITS
 
 # Import database session dependency
 # Defined in: app/db/session.py
@@ -36,15 +39,23 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 
 # POST /api/v1/auth/signup - User registration endpoint
 @router.post("/signup", response_model=TokenResponse)
-def signup_route(payload: SignupRequest, db: Session = Depends(get_db)):
+@limiter.limit(RATE_LIMITS["auth_signup"])  # 3/hour rate limit
+async def signup_route(
+    request: Request,
+    payload: SignupRequest,
+    db: Session = Depends(get_db)
+):
     """
     Register a new user
 
+    Rate limit: 3 requests per hour per IP (prevents mass account creation)
+
     What happens:
     1. FastAPI validates request body against SignupRequest schema
-    2. FastAPI runs get_db() to create database session
-    3. This route calls signup() CONTROLLER (does NOT do logic itself)
-    4. Controller handles the workflow and returns token
+    2. Rate limiter checks if IP has exceeded signup limit
+    3. FastAPI runs get_db() to create database session
+    4. This route calls signup() CONTROLLER (does NOT do logic itself)
+    5. Controller handles the workflow and returns token
     """
     # Call controller - controller will orchestrate services
     # Calls: app/controllers/auth_controller.py → signup()
@@ -58,15 +69,23 @@ def signup_route(payload: SignupRequest, db: Session = Depends(get_db)):
 
 # POST /api/v1/auth/login - User authentication endpoint
 @router.post("/login", response_model=TokenResponse)
-def login_route(payload: LoginRequest, db: Session = Depends(get_db)):
+@limiter.limit(RATE_LIMITS["auth_login"])  # 5/minute rate limit
+async def login_route(
+    request: Request,
+    payload: LoginRequest,
+    db: Session = Depends(get_db)
+):
     """
     Authenticate user and return JWT token
 
+    Rate limit: 5 requests per minute per IP (prevents credential stuffing)
+
     What happens:
     1. FastAPI validates request body against LoginRequest schema
-    2. FastAPI runs get_db() to create database session
-    3. This route calls login() CONTROLLER (does NOT do logic itself)
-    4. Controller validates credentials and returns token
+    2. Rate limiter checks if IP has exceeded login attempts
+    3. FastAPI runs get_db() to create database session
+    4. This route calls login() CONTROLLER (does NOT do logic itself)
+    5. Controller validates credentials and returns token
     """
     # Call controller - controller will verify password and generate token
     # Calls: app/controllers/auth_controller.py → login()

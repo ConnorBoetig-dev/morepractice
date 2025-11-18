@@ -206,7 +206,10 @@ async function loadGamificationStats() {
         // Fetch achievement stats
         let achievementStats = { earned_achievements: 0 };
         try {
-            achievementStats = await apiRequest('GET', '/achievements/stats', null, true);
+            const achievements = await apiRequest('GET', ENDPOINTS.ACHIEVEMENTS_ME, null, true);
+            achievementStats = {
+                earned_achievements: achievements.earned?.length || 0
+            };
         } catch (e) {
             console.log('Achievements not yet available');
         }
@@ -214,7 +217,10 @@ async function loadGamificationStats() {
         // Fetch avatar stats
         let avatarStats = { unlocked_avatars: 0 };
         try {
-            avatarStats = await apiRequest('GET', '/avatars/stats', null, true);
+            const avatars = await apiRequest('GET', ENDPOINTS.AVATARS_ME, null, true);
+            avatarStats = {
+                unlocked_avatars: avatars.unlocked?.length || 0
+            };
         } catch (e) {
             console.log('Avatars not yet available');
         }
@@ -264,15 +270,19 @@ async function loadGamificationStats() {
     - Token remains valid until expiration (even after logout)
     - For true server-side logout, need token blacklist (more complex)
 */
-logoutButton.addEventListener('click', () => {
-    console.log('🚪 Logging out...');
+// NOTE: Logout is now handled by navigation.js
+// This code is kept for backwards compatibility if logout-btn element exists
+if (logoutButton) {
+    logoutButton.addEventListener('click', () => {
+        console.log('🚪 Logging out...');
 
-    // Remove token from localStorage
-    removeToken();
+        // Remove token from localStorage
+        removeToken();
 
-    // Redirect to login page
-    window.location.href = '/login.html';
-});
+        // Redirect to login page
+        window.location.href = '/login.html';
+    });
+}
 
 /*
     LEARNING SUMMARY:

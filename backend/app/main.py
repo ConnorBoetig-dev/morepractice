@@ -60,11 +60,16 @@ if len(jwt_secret) < 32:
     # Don't exit, just warn (allows development to continue)
 
 # FastAPI - modern web framework for building APIs
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 
 # CORS Middleware - allows React frontend to make requests to this API
 # Without CORS, browsers block cross-origin requests (frontend on :5173, backend on :8000)
 from fastapi.middleware.cors import CORSMiddleware
+
+# Rate limiting - protects API from abuse and DDoS attacks
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from app.utils.rate_limit import limiter  # Import centralized limiter
 
 # SQLAlchemy components for database setup
 # Defined in: app/db/base.py
@@ -105,6 +110,12 @@ Base.metadata.create_all(bind=engine)
 # INITIALIZE FASTAPI APPLICATION
 # ============================================
 app = FastAPI(title="Billings API")  # Creates the FastAPI app instance
+
+# Add rate limiter to app state (makes it accessible to routes)
+app.state.limiter = limiter
+
+# Register rate limit exceeded handler (returns 429 status)
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 # ============================================
@@ -199,3 +210,16 @@ app.include_router(avatar_router, prefix="/api/v1")
 #   - GET /api/v1/leaderboard/streak
 #   - GET /api/v1/leaderboard/exam/{exam_type}
 app.include_router(leaderboard_router, prefix="/api/v1")
+
+
+# ============================================
+# BACKGROUND TASKS
+# ============================================
+# Start scheduled background tasks (runs independently of HTTP requests)
+from app.tasks import start_background_tasks
+
+# Use startup event to initialize scheduler when app starts
+@app.on_event("startup")
+async def startup_event():
+    """Initialize background tasks on application startup"""
+    start_background_tasks()
