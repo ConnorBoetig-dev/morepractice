@@ -20,23 +20,89 @@
         - Logout functionality
     -->
 
-    <div class="container">
-        <!-- Navigation Bar -->
-        <nav class="navbar">
-            <div class="nav-brand">
-                <h2>🎓 Billings</h2>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="nav-brand">Billings</a>
+            <div class="nav-links">
+                <a href="dashboard.html" class="nav-link active">Dashboard</a>
+                <a href="quiz-select.html" class="nav-link">Practice Quiz</a>
+                <a href="achievements.html" class="nav-link">Achievements</a>
+                <a href="avatars.html" class="nav-link">Avatars</a>
+                <a href="leaderboards.html" class="nav-link">Leaderboards</a>
             </div>
             <div class="nav-actions">
-                <button id="logout-btn" class="button button-danger-outline">
-                    Logout
-                </button>
+                <a href="login.html" id="nav-login" class="button button-secondary-outline">Login</a>
+                <a href="signup.html" id="nav-signup" class="button button-primary">Sign Up</a>
+                <button id="nav-logout" class="button button-danger-outline" style="display: none;">Logout</button>
             </div>
-        </nav>
+        </div>
+    </nav>
+
+    <div class="container">
 
         <div class="dashboard">
             <div class="dashboard-header">
                 <h1>👋 Welcome Back!</h1>
                 <p>Your personal dashboard</p>
+            </div>
+
+            <!-- GAMIFICATION STATS -->
+            <div id="profile-stats" style="display: none;">
+                <div class="xp-display">
+                    <div class="xp-header">
+                        <div>
+                            <div class="level-badge-large" id="level-badge">1</div>
+                        </div>
+                        <div style="flex: 1; margin-left: 20px;">
+                            <div class="xp-current" id="xp-current">0 XP</div>
+                            <div class="xp-to-next" id="xp-to-next">100 XP to Level 2</div>
+                        </div>
+                    </div>
+                    <div id="xp-progress-bar"></div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-value" id="stat-quizzes">0</div>
+                        <div class="stat-label">Quizzes Taken</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🔥</div>
+                        <div class="stat-value" id="stat-streak">0</div>
+                        <div class="stat-label">Current Streak</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🏆</div>
+                        <div class="stat-value" id="stat-achievements">0</div>
+                        <div class="stat-label">Achievements</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">⭐</div>
+                        <div class="stat-value" id="stat-avatars">0</div>
+                        <div class="stat-label">Avatars Unlocked</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PRACTICE QUIZ CTA -->
+            <div class="quiz-cta-card">
+                <h2>🎯 Ready to Practice?</h2>
+                <p>Test your knowledge with CompTIA practice questions</p>
+                <a href="quiz-select.html" class="button button-primary button-large">
+                    Start Practice Quiz →
+                </a>
+                <div class="quiz-stats">
+                    <div class="stat-item">
+                        <strong>4,170</strong>
+                        <span>Total Questions</span>
+                    </div>
+                    <div class="stat-item">
+                        <strong>4</strong>
+                        <span>Exam Types</span>
+                    </div>
+                </div>
             </div>
 
             <!--
@@ -164,20 +230,21 @@
             </div>
 
             <!--
-                LEARNING RESOURCES
+                AVAILABLE EXAMS
 
-                Additional information about authentication
+                Show what CompTIA certifications are available
             -->
             <div class="card learning-card">
-                <h3>📚 What You Just Learned</h3>
+                <h3>📚 Available Certifications</h3>
                 <ul class="feature-list">
-                    <li><strong>Protected Routes:</strong> Page redirects to login if no token found</li>
-                    <li><strong>Bearer Tokens:</strong> JWT sent in <code>Authorization</code> header</li>
-                    <li><strong>Authenticated Requests:</strong> Backend validates token on every request</li>
-                    <li><strong>Token Expiration:</strong> Tokens expire for security (15 min)</li>
-                    <li><strong>Logout:</strong> Removes token from localStorage (client-side)</li>
-                    <li><strong>Error Handling:</strong> 401 errors redirect to login page</li>
+                    <li><strong>CompTIA A+ (1101):</strong> Core 1 - Hardware & Networking (994 questions)</li>
+                    <li><strong>CompTIA A+ (1102):</strong> Core 2 - Operating Systems & Security (1,048 questions)</li>
+                    <li><strong>CompTIA Network+:</strong> Networking Fundamentals (1,141 questions)</li>
+                    <li><strong>CompTIA Security+:</strong> Cybersecurity Fundamentals (987 questions)</li>
                 </ul>
+                <p style="margin-top: 15px; color: #666; font-size: 14px;">
+                    Each quiz includes detailed explanations for every answer choice.
+                </p>
             </div>
         </div>
     </div>

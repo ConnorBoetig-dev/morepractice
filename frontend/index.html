@@ -18,13 +18,32 @@
         - Client-side routing (redirecting based on authentication state)
     -->
 
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="nav-brand">Billings</a>
+            <div class="nav-links">
+                <a href="dashboard.html" class="nav-link">Dashboard</a>
+                <a href="quiz-select.html" class="nav-link">Practice Quiz</a>
+                <a href="achievements.html" class="nav-link">Achievements</a>
+                <a href="avatars.html" class="nav-link">Avatars</a>
+                <a href="leaderboards.html" class="nav-link">Leaderboards</a>
+            </div>
+            <div class="nav-actions">
+                <a href="login.html" id="nav-login" class="button button-secondary-outline">Login</a>
+                <a href="signup.html" id="nav-signup" class="button button-primary">Sign Up</a>
+                <button id="nav-logout" class="button button-danger-outline" style="display: none;">Logout</button>
+            </div>
+        </div>
+    </nav>
+
     <div class="container">
         <header class="hero">
-            <h1>🎓 Billings Learning Platform</h1>
-            <p class="subtitle">Full-Stack Authentication Demo</p>
+            <h1>🎓 Billings - CompTIA Practice</h1>
+            <p class="subtitle">Full-Stack Quiz Application</p>
             <p class="description">
-                This is a simple frontend demonstrating how to interact with a
-                FastAPI backend using JWT authentication.
+                Practice CompTIA certification exams (A+, Network+, Security+)
+                with a clean backend-powered quiz system.
             </p>
         </header>
 
@@ -53,25 +72,25 @@
             </div>
 
             <div class="features">
-                <h3>What This Demo Shows</h3>
+                <h3>Features</h3>
                 <ul class="feature-list">
                     <li>
-                        <strong>User Registration</strong> - Create account with email/password
+                        <strong>4,170+ Practice Questions</strong> - Real CompTIA exam questions
                     </li>
                     <li>
-                        <strong>Authentication</strong> - Log in and receive JWT token
+                        <strong>4 Certification Paths</strong> - A+ (1101 & 1102), Network+, Security+
                     </li>
                     <li>
-                        <strong>Protected Routes</strong> - Access dashboard only when authenticated
+                        <strong>Random Quiz Generation</strong> - Backend generates unique quizzes
                     </li>
                     <li>
-                        <strong>API Communication</strong> - Make requests to FastAPI backend
+                        <strong>Detailed Explanations</strong> - Learn why each answer is correct/incorrect
                     </li>
                     <li>
-                        <strong>Token Management</strong> - Store JWT in localStorage
+                        <strong>User Authentication</strong> - Track your progress with JWT tokens
                     </li>
                     <li>
-                        <strong>Error Handling</strong> - Display user-friendly error messages
+                        <strong>Clean Backend Integration</strong> - FastAPI + PostgreSQL + REST API
                     </li>
                 </ul>
             </div>
@@ -115,6 +134,10 @@
         // Import our authentication utility
         // This file handles JWT token storage and retrieval
         import { isAuthenticated } from './js/auth.js';
+        import { initializeNavigation } from './js/navigation.js';
+
+        // Initialize navigation (show/hide login/logout buttons)
+        initializeNavigation();
 
         // Check if user is already logged in
         // This runs as soon as the page loads

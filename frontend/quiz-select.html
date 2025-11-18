@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select Quiz - Billings</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="nav-brand">Billings</a>
+            <div class="nav-links">
+                <a href="dashboard.html" class="nav-link">Dashboard</a>
+                <a href="quiz-select.html" class="nav-link active">Practice Quiz</a>
+                <a href="achievements.html" class="nav-link">Achievements</a>
+                <a href="avatars.html" class="nav-link">Avatars</a>
+                <a href="leaderboards.html" class="nav-link">Leaderboards</a>
+            </div>
+            <div class="nav-actions">
+                <a href="login.html" id="nav-login" class="button button-secondary-outline">Login</a>
+                <a href="signup.html" id="nav-signup" class="button button-primary">Sign Up</a>
+                <button id="nav-logout" class="button button-danger-outline" style="display: none;">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="quiz-select-page">
+            <!-- Page Header -->
+            <div class="page-header">
+                <h1>Generate Practice Quiz</h1>
+                <p>Select your exam type and number of questions to begin</p>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loading" class="loading-spinner">
+                <p>Loading available exams...</p>
+            </div>
+
+            <!-- Error Message -->
+            <div id="error-message" class="error-message" style="display: none;"></div>
+
+            <!-- Quiz Configuration Form -->
+            <div id="quiz-config-form" class="quiz-config-card" style="display: none;">
+                <form id="quiz-form">
+                    <!-- Exam Type Selection -->
+                    <div class="form-group">
+                        <label for="exam-select">
+                            <strong>Certification Exam</strong>
+                        </label>
+                        <select id="exam-select" name="exam_type" class="form-control" required>
+                            <option value="">-- Select an exam --</option>
+                            <!-- Options populated dynamically by JavaScript -->
+                        </select>
+                        <small class="form-help">
+                            Choose which CompTIA certification to practice
+                        </small>
+                    </div>
+
+                    <!-- Question Count Selection -->
+                    <div class="form-group">
+                        <label for="count-select">
+                            <strong>Number of Questions</strong>
+                        </label>
+                        <select id="count-select" name="count" class="form-control" required>
+                            <option value="10">10 questions</option>
+                            <option value="30" selected>30 questions</option>
+                            <option value="60">60 questions</option>
+                            <option value="90">90 questions</option>
+                        </select>
+                        <small class="form-help">
+                            Select quiz length (CompTIA exams typically have 90 questions)
+                        </small>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="button button-primary button-large">
+                        Generate Quiz →
+                    </button>
+                </form>
+            </div>
+
+            <!-- Available Exams Info -->
+            <div id="exam-stats" class="exam-stats-grid" style="display: none;">
+                <!-- Stats populated dynamically by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Module -->
+    <script type="module" src="js/quiz-select.js"></script>
+</body>
+</html>

@@ -86,6 +86,11 @@ from app.models.user import User, UserProfile
 # Question model - defined in: app/models/question.py
 from app.models.question import Question
 
+# Gamification models - defined in: app/models/gamification.py
+from app.models.gamification import (
+    QuizAttempt, UserAnswer, Achievement, UserAchievement, Avatar, UserAvatar
+)
+
 
 # ============================================
 # CREATE DATABASE TABLES
@@ -133,6 +138,22 @@ from app.api.v1.auth_routes import router as auth_router
 # Defined in: app/api/v1/question_routes.py
 from app.api.v1.question_routes import router as question_router
 
+# Import router from quiz routes file
+# Defined in: app/api/v1/quiz_routes.py
+from app.api.v1.quiz_routes import router as quiz_router
+
+# Import router from achievement routes file
+# Defined in: app/api/v1/achievement_routes.py
+from app.api.v1.achievement_routes import router as achievement_router
+
+# Import router from avatar routes file
+# Defined in: app/api/v1/avatar_routes.py
+from app.api.v1.avatar_routes import router as avatar_router
+
+# Import router from leaderboard routes file
+# Defined in: app/api/v1/leaderboard_routes.py
+from app.api.v1.leaderboard_routes import router as leaderboard_router
+
 # Register the auth router with /api/v1 prefix
 # This creates routes:
 #   - POST /api/v1/auth/signup
@@ -145,3 +166,36 @@ app.include_router(auth_router, prefix="/api/v1")
 #   - GET /api/v1/questions/exams
 #   - GET /api/v1/questions/quiz?exam_type=security&count=30
 app.include_router(question_router, prefix="/api/v1")
+
+# Register the quiz router with /api/v1 prefix
+# This creates routes:
+#   - POST /api/v1/quiz/submit
+#   - GET  /api/v1/quiz/history
+#   - GET  /api/v1/quiz/stats
+app.include_router(quiz_router, prefix="/api/v1")
+
+# Register the achievement router with /api/v1 prefix
+# This creates routes:
+#   - GET /api/v1/achievements
+#   - GET /api/v1/achievements/me
+#   - GET /api/v1/achievements/earned
+#   - GET /api/v1/achievements/stats
+app.include_router(achievement_router, prefix="/api/v1")
+
+# Register the avatar router with /api/v1 prefix
+# This creates routes:
+#   - GET /api/v1/avatars
+#   - GET /api/v1/avatars/me
+#   - GET /api/v1/avatars/unlocked
+#   - POST /api/v1/avatars/select
+#   - GET /api/v1/avatars/stats
+app.include_router(avatar_router, prefix="/api/v1")
+
+# Register the leaderboard router with /api/v1 prefix
+# This creates routes:
+#   - GET /api/v1/leaderboard/xp
+#   - GET /api/v1/leaderboard/quiz-count
+#   - GET /api/v1/leaderboard/accuracy
+#   - GET /api/v1/leaderboard/streak
+#   - GET /api/v1/leaderboard/exam/{exam_type}
+app.include_router(leaderboard_router, prefix="/api/v1")

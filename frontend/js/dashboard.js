@@ -20,6 +20,7 @@
 import { ENDPOINTS } from './config.js';
 import { apiRequest } from './api.js';
 import { getToken, removeToken, redirectIfNotAuthenticated } from './auth.js';
+import { xpForLevel, xpToNextLevel, levelProgressPercentage, createProgressBar, formatNumber } from './utils.js';
 
 /*
     STEP 1: Route Guard
@@ -47,6 +48,17 @@ const userCreatedSpan = document.getElementById('user-created');
 
 // Token display (for learning)
 const tokenDisplay = document.getElementById('token-display');
+
+// Gamification elements
+const profileStatsDiv = document.getElementById('profile-stats');
+const levelBadge = document.getElementById('level-badge');
+const xpCurrentDiv = document.getElementById('xp-current');
+const xpToNextDiv = document.getElementById('xp-to-next');
+const xpProgressBar = document.getElementById('xp-progress-bar');
+const statQuizzes = document.getElementById('stat-quizzes');
+const statStreak = document.getElementById('stat-streak');
+const statAchievements = document.getElementById('stat-achievements');
+const statAvatars = document.getElementById('stat-avatars');
 
 /*
     STEP 3: Fetch user data when page loads
@@ -136,14 +148,19 @@ const tokenDisplay = document.getElementById('token-display');
         }
 
         /*
-            STEP 7: Show user info, hide loading
+            STEP 7: Fetch and display gamification stats
+        */
+        await loadGamificationStats();
+
+        /*
+            STEP 8: Show user info, hide loading
         */
         loadingDiv.style.display = 'none';
         userInfoDiv.style.display = 'block';
 
     } catch (error) {
         /*
-            STEP 8: Handle errors
+            STEP 9: Handle errors
 
             Common errors:
             - 401 Unauthorized → token expired
@@ -178,7 +195,63 @@ const tokenDisplay = document.getElementById('token-display');
 })();
 
 /*
-    STEP 9: Handle logout button click
+    Load Gamification Stats
+*/
+async function loadGamificationStats() {
+    try {
+        // Fetch profile data (XP, level, streak)
+        const profileResponse = await apiRequest('GET', ENDPOINTS.ME, null, true);
+        const profile = profileResponse.profile || {};
+
+        // Fetch achievement stats
+        let achievementStats = { earned_achievements: 0 };
+        try {
+            achievementStats = await apiRequest('GET', '/achievements/stats', null, true);
+        } catch (e) {
+            console.log('Achievements not yet available');
+        }
+
+        // Fetch avatar stats
+        let avatarStats = { unlocked_avatars: 0 };
+        try {
+            avatarStats = await apiRequest('GET', '/avatars/stats', null, true);
+        } catch (e) {
+            console.log('Avatars not yet available');
+        }
+
+        // Display level
+        const level = profile.level || 1;
+        levelBadge.textContent = level;
+
+        // Display XP
+        const xp = profile.xp || 0;
+        xpCurrentDiv.textContent = `${formatNumber(xp)} XP`;
+
+        // Calculate XP to next level
+        const xpNeeded = xpToNextLevel(xp, level);
+        xpToNextDiv.textContent = `${formatNumber(xpNeeded)} XP to Level ${level + 1}`;
+
+        // Display progress bar
+        const progress = levelProgressPercentage(xp, level);
+        xpProgressBar.innerHTML = createProgressBar(progress, 'progress-primary');
+
+        // Display stats
+        statQuizzes.textContent = formatNumber(profile.total_exams_taken || 0);
+        statStreak.textContent = formatNumber(profile.study_streak_current || 0);
+        statAchievements.textContent = formatNumber(achievementStats.earned_achievements || 0);
+        statAvatars.textContent = formatNumber(avatarStats.unlocked_avatars || 0);
+
+        // Show profile stats
+        profileStatsDiv.style.display = 'block';
+
+    } catch (error) {
+        console.error('Failed to load gamification stats:', error);
+        // Don't show profile stats if there's an error
+    }
+}
+
+/*
+    STEP 10: Handle logout button click
 
     Logout flow:
     1. User clicks logout button
@@ -244,3 +317,7 @@ logoutButton.addEventListener('click', () => {
     - Conditional styling (active/inactive status)
     - Token display for educational purposes
 */
+
+// Initialize navigation
+import { initializeNavigation } from './navigation.js';
+initializeNavigation();

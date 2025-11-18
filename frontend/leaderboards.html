@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaderboards - Billings</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="nav-brand">Billings</a>
+            <div class="nav-links">
+                <a href="dashboard.html" class="nav-link">Dashboard</a>
+                <a href="quiz-select.html" class="nav-link">Practice Quiz</a>
+                <a href="achievements.html" class="nav-link">Achievements</a>
+                <a href="avatars.html" class="nav-link">Avatars</a>
+                <a href="leaderboards.html" class="nav-link active">Leaderboards</a>
+            </div>
+            <div class="nav-actions">
+                <a href="login.html" id="nav-login" class="button button-secondary-outline">Login</a>
+                <a href="signup.html" id="nav-signup" class="button button-primary">Sign Up</a>
+                <button id="nav-logout" class="button button-danger-outline" style="display: none;">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="dashboard">
+            <div class="dashboard-header">
+                <h1>🏅 Leaderboards</h1>
+                <p>See how you rank against other quiz takers</p>
+            </div>
+
+            <!-- Leaderboard Tabs -->
+            <div class="leaderboard-tabs">
+                <button class="leaderboard-tab active" data-leaderboard="xp">
+                    🌟 XP
+                </button>
+                <button class="leaderboard-tab" data-leaderboard="quiz-count">
+                    📊 Quiz Count
+                </button>
+                <button class="leaderboard-tab" data-leaderboard="accuracy">
+                    🎯 Accuracy
+                </button>
+                <button class="leaderboard-tab" data-leaderboard="streak">
+                    🔥 Streak
+                </button>
+                <button class="leaderboard-tab" data-leaderboard="exam">
+                    📚 Exam-Specific
+                </button>
+            </div>
+
+            <!-- Exam Type Selector (for exam-specific leaderboard) -->
+            <div id="exam-selector" style="display: none; margin-bottom: 20px;">
+                <select id="exam-type-select" class="form-control">
+                    <option value="security_plus">Security+</option>
+                    <option value="network_plus">Network+</option>
+                    <option value="a_plus_core_1">A+ Core 1</option>
+                    <option value="a_plus_core_2">A+ Core 2</option>
+                </select>
+            </div>
+
+            <!-- Loading -->
+            <div id="loading" class="loading-spinner">
+                <p>Loading leaderboard...</p>
+            </div>
+
+            <!-- Error Message -->
+            <div id="error-message" class="error-message" style="display: none;"></div>
+
+            <!-- Leaderboard Table -->
+            <div id="leaderboard-container" class="leaderboard-table" style="display: none;"></div>
+
+            <!-- Empty State -->
+            <div id="empty-state" class="empty-state" style="display: none;">
+                <div class="empty-state-icon">🏅</div>
+                <h3>No Rankings Yet</h3>
+                <p>Be the first to complete quizzes and climb the leaderboard!</p>
+                <a href="quiz-select.html" class="button button-primary">Start Quiz</a>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/leaderboards.js"></script>
+</body>
+</html>

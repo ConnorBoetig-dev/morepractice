@@ -67,6 +67,11 @@ def signup(db: Session, email: str, password: str, username: str) -> dict:
     # Call SERVICE to insert profile
     create_profile(db, user_id=user.id)  # ← SERVICE does the INSERT
 
+    # Step 3.5: Unlock default avatars for new user
+    # Call SERVICE to unlock all default avatars
+    from app.services.avatar_service import unlock_default_avatars
+    unlock_default_avatars(db, user.id)
+
     # Step 4: Generate JWT token
     # Call UTILITY (no database involved)
     token = create_access_token({"user_id": user.id})  # ← UTILITY creates token

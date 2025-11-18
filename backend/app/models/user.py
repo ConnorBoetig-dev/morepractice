@@ -64,6 +64,13 @@ class UserProfile(Base):
     # ============================================
     bio = Column(Text, nullable=True)  # User biography/description (optional)
     avatar_url = Column(String, nullable=True)  # Profile picture URL (optional)
+    selected_avatar_id = Column(Integer, ForeignKey("avatars.id"), nullable=True)  # Currently equipped avatar
+
+    # ============================================
+    # GAMIFICATION: XP & LEVEL SYSTEM
+    # ============================================
+    xp = Column(Integer, default=0, nullable=False)  # Total experience points
+    level = Column(Integer, default=1, nullable=False)  # Current level (calculated from XP)
 
     # ============================================
     # GAMIFICATION: STREAKS

@@ -135,17 +135,7 @@ from sqlalchemy.orm import Session
 security = HTTPBearer()
 
 # Import get_db dependency for database session injection
-# Defined in: app/api/v1/auth_routes.py (or should be in app/db/session.py)
-from app.db.session import SessionLocal
-
-# Database session dependency - creates a session for each request
-def get_db():
-    """FastAPI dependency that provides a database session"""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+from app.db.session import get_db
 
 # GET CURRENT USER DEPENDENCY
 # Used by: Protected routes that require authentication (e.g., GET /auth/me)
@@ -214,3 +204,54 @@ def get_current_user(
 
     # Return User model - FastAPI will inject this into route parameter
     return user  # ← Returns User from app/models/user.py
+
+
+# GET CURRENT USER ID DEPENDENCY (lightweight version)
+# Used by: Routes that only need the user ID, not the full User object
+def get_current_user_id(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> int:
+    """
+    FastAPI DEPENDENCY: Extract user ID from JWT token (without database query)
+
+    This is a lightweight version of get_current_user() that skips the database lookup.
+    Use this when you only need the user_id and don't need the full User object.
+
+    Benefits:
+    - Faster (no database query)
+    - Less overhead
+    - Still validates token signature and expiration
+
+    Usage in routes:
+    @router.post("/submit")
+    def submit_quiz(user_id: int = Depends(get_current_user_id)):
+        # user_id is validated and extracted from JWT
+        pass
+
+    Returns:
+        int: User ID from JWT payload
+
+    Raises:
+        HTTPException 401: If token is invalid or expired
+    """
+    # Extract and validate token
+    token = credentials.credentials
+    payload = decode_access_token(token)
+
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Extract user_id from payload
+    user_id: int = payload.get("user_id")
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return user_id

@@ -25,13 +25,33 @@ export const API_VERSION = '/api/v1';
 // Full API base (combines both above)
 export const API_FULL_BASE = `${API_BASE_URL}${API_VERSION}`;
 
-// Auth endpoints
+// API endpoints
 // We define these as constants so there are no typos in route strings
 export const ENDPOINTS = {
+    // Auth endpoints
     SIGNUP: `${API_FULL_BASE}/auth/signup`,
     LOGIN: `${API_FULL_BASE}/auth/login`,
     ME: `${API_FULL_BASE}/auth/me`,
     LOGOUT: `${API_FULL_BASE}/auth/logout`,
+
+    // Question/Quiz endpoints
+    EXAMS: `${API_FULL_BASE}/questions/exams`,
+    QUIZ: `${API_FULL_BASE}/questions/quiz`,  // Use with query params: ?exam_type=security&count=30
+    QUIZ_SUBMIT: `${API_FULL_BASE}/quiz/submit`,
+
+    // Achievement endpoints
+    ACHIEVEMENTS_ME: `${API_FULL_BASE}/achievements/me`,
+
+    // Avatar endpoints
+    AVATARS_ME: `${API_FULL_BASE}/avatars/me`,
+    AVATARS_SELECT: `${API_FULL_BASE}/avatars/select`,
+
+    // Leaderboard endpoints
+    LEADERBOARD_XP: `${API_FULL_BASE}/leaderboard/xp`,
+    LEADERBOARD_QUIZ_COUNT: `${API_FULL_BASE}/leaderboard/quiz-count`,
+    LEADERBOARD_ACCURACY: `${API_FULL_BASE}/leaderboard/accuracy`,
+    LEADERBOARD_STREAK: `${API_FULL_BASE}/leaderboard/streak`,
+    LEADERBOARD_EXAM: `${API_FULL_BASE}/leaderboard/exam`, // Use with /{exam_type}
 };
 
 /*

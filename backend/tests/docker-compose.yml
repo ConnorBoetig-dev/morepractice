@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  # PostgreSQL Test Database
+  # Runs on port 5433 (different from dev DB on 5432)
+  # Database name: billings_test
+  test_db:
+    image: postgres:15
+    container_name: billings_test_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: billings_test
+    ports:
+      - "5433:5432"  # External:Internal - access via localhost:5433
+    # No volume mount - data doesn't need to persist between test runs
+    # This keeps tests fast and ensures clean state
