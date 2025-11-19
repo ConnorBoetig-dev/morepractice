@@ -81,6 +81,18 @@ def get_user_by_id(db: Session, user_id: int) -> User | None:
     # Execute database SELECT query
     return db.query(User).filter(User.id == user_id).first()  # ← Returns User or None
 
+# GET USER BY USERNAME SERVICE
+# Called by: app/controllers/auth_controller.py → signup(), login()
+def get_user_by_username(db: Session, username: str) -> User | None:
+    """
+    DATABASE OPERATION: Query user by username
+
+    SQL executed: SELECT * FROM users WHERE username = 'xxx' LIMIT 1
+    Returns: User model if found, None if not found
+    """
+    # Execute database SELECT query
+    return db.query(User).filter(User.username == username).first()  # ← Returns User or None
+
 # UPDATE USER SERVICE
 # Called by: (not currently used - placeholder for future features)
 def update_user(db: Session, user_id: int, updates: dict) -> User:

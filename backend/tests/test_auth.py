@@ -204,27 +204,35 @@ def test_login_nonexistent_user(client):
 @pytest.mark.api
 @pytest.mark.integration
 def test_login_unverified_user(client, test_user):
-    """Test login with unverified email (should succeed but may have warnings)"""
+    """Test login with unverified email (currently ALLOWED)"""
     # test_user is not verified by default
+    assert test_user.is_verified is False
+
     response = client.post("/api/v1/auth/login", json={
         "email": "test@example.com",
         "password": "Test@Pass9word!"
     })
 
-    # Depends on implementation: may allow login but flag verification status
-    # Or may reject login entirely
-    assert response.status_code in [200, 403]
+    # Current implementation: unverified users CAN login (no is_verified check in login controller)
+    # This allows users to access the app before verifying email
+    assert response.status_code == 200
+    data = response.json()
+    assert "access_token" in data
+    assert "user" in data
+    # Verify user object shows unverified status
+    assert data["user"]["is_verified"] is False
+    assert data["user"]["email"] == "test@example.com"
 
 
 @pytest.mark.api
 @pytest.mark.integration
 def test_login_inactive_user(client, test_db):
-    """Test login with inactive user fails"""
+    """Test login with inactive user is rejected (disabled/banned accounts)"""
     user = User(
         email="inactive@example.com",
         username="inactive",
         hashed_password=hash_password("Test@Pass9word!"),
-        is_active=False,
+        is_active=False,  # Account disabled by admin (banned/suspended)
         is_verified=True
     )
     test_db.add(user)
@@ -235,8 +243,21 @@ def test_login_inactive_user(client, test_db):
         "password": "Test@Pass9word!"
     })
 
-    # API may return 200 or 403 depending on implementation
-    assert response.status_code in [200, 403]
+    # Note: May get 429 if rate limited (expected when running full test suite)
+    if response.status_code == 429:
+        # Rate limited - skip this test
+        import pytest
+        pytest.skip("Rate limited - login endpoint rate limit reached")
+
+    # Inactive accounts (banned/disabled) should NOT be able to login
+    assert response.status_code == 403
+    data = response.json()
+    assert "disabled" in data["detail"].lower()
+    assert "contact support" in data["detail"].lower()
+
+    # Verify user is indeed inactive
+    test_db.refresh(user)
+    assert user.is_active is False
 
 
 # ================================================================
@@ -341,7 +362,11 @@ def test_verify_email_success(client, test_db, test_user):
     # Generate verification token (function takes no arguments)
     token = generate_verification_token()
 
-    response = client.post(f"/api/v1/auth/verify-email?token={token}")
+    # Save token to test_user in database
+    test_user.email_verification_token = token
+    test_db.commit()
+
+    response = client.post("/api/v1/auth/verify-email", json={"token": token})
 
     # Implementation may vary
     if response.status_code != 404:
@@ -365,15 +390,40 @@ def test_verify_email_invalid_token(client):
 
 @pytest.mark.api
 @pytest.mark.integration
-def test_resend_verification_email(client, test_user):
-    """Test resending verification email"""
-    response = client.post("/api/v1/auth/resend-verification", json={
+def test_resend_verification_email(client, test_db, test_user):
+    """Test sending/resending verification email"""
+    # Ensure user starts unverified with no token
+    test_user.is_verified = False
+    test_user.email_verification_token = None
+    test_db.commit()
+
+    response = client.post("/api/v1/auth/send-verification", json={
         "email": "test@example.com"
     })
 
-    # Implementation may vary - may accept request even if not configured
-    if response.status_code not in [404, 500]:
-        assert response.status_code == 200
+    # Should return 200 with success message
+    assert response.status_code == 200
+    data = response.json()
+    assert "message" in data
+    assert "verification" in data["message"].lower()
+
+    # Verify token was generated and stored in database
+    test_db.refresh(test_user)
+    assert test_user.email_verification_token is not None
+    assert len(test_user.email_verification_token) > 0
+
+    # Test resending to already verified user
+    test_user.is_verified = True
+    test_db.commit()
+
+    response = client.post("/api/v1/auth/send-verification", json={
+        "email": "test@example.com"
+    })
+
+    # Should return 200 but indicate already verified
+    assert response.status_code == 200
+    data = response.json()
+    assert "already verified" in data["message"].lower()
 
 
 # ================================================================
@@ -397,8 +447,14 @@ def test_request_password_reset(client, test_user):
 @pytest.mark.integration
 def test_reset_password_success(client, test_db, test_user):
     """Test successful password reset"""
-    # Generate reset token (function takes no arguments)
-    token = generate_reset_token()
+    # Generate reset token with expiration
+    from app.utils.tokens import generate_reset_token_with_expiration
+    token, expires_at = generate_reset_token_with_expiration()
+
+    # Save token to test_user in database
+    test_user.reset_token = token
+    test_user.reset_token_expires = expires_at
+    test_db.commit()
 
     new_password = "NewSecurePass456!"
     response = client.post("/api/v1/auth/reset-password", json={
@@ -435,18 +491,17 @@ def test_change_password_success(client, auth_headers, test_db, test_user):
     response = client.post("/api/v1/auth/change-password",
         headers=auth_headers,
         json={
-            "current_password": "Test@Pass9word!",  # test_user's actual password
-            "new_password": "NewSecurePass789!"
+            "old_password": "Test@Pass9word!",  # test_user's actual password
+            "new_password": "NewSecure@Pass42!"  # No sequential characters
         }
     )
 
-    if response.status_code != 404:
-        # May return 200 or 422 if endpoint not implemented
-        assert response.status_code in [200, 422]
+    # Should return 200 on success
+    assert response.status_code == 200
 
-        # Verify password was changed
-        test_db.refresh(test_user)
-        assert verify_password("NewSecurePass789!", test_user.hashed_password)
+    # Verify password was changed
+    test_db.refresh(test_user)
+    assert verify_password("NewSecure@Pass42!", test_user.hashed_password)
 
 
 @pytest.mark.api
@@ -456,7 +511,7 @@ def test_change_password_wrong_current(client, auth_headers):
     response = client.post("/api/v1/auth/change-password",
         headers=auth_headers,
         json={
-            "current_password": "wrongpass",
+            "old_password": "wrongpass",
             "new_password": "NewPass123!"
         }
     )
@@ -474,10 +529,11 @@ def test_change_password_wrong_current(client, auth_headers):
 @pytest.mark.integration
 def test_logout_success(client, auth_headers, test_db, test_user):
     """Test successful logout"""
-    # Create session
+    # Create session with refresh token
+    refresh_token = "test_refresh_token_12345"
     session = Session(
         user_id=test_user.id,
-        refresh_token="test_refresh_token",
+        refresh_token=refresh_token,
         expires_at=datetime.utcnow() + timedelta(days=7),
         ip_address="127.0.0.1",
         user_agent="TestClient"
@@ -485,18 +541,25 @@ def test_logout_success(client, auth_headers, test_db, test_user):
     test_db.add(session)
     test_db.commit()
 
-    response = client.post("/api/v1/auth/logout", headers=auth_headers)
+    # Verify session exists and is active before logout
+    test_db.refresh(session)
+    assert session.is_active is True
 
-    if response.status_code != 404:
-        # May return 200 or 422 depending on endpoint implementation
-        assert response.status_code in [200, 422]
+    # Logout with refresh token
+    response = client.post("/api/v1/auth/logout",
+        headers=auth_headers,
+        json={"refresh_token": refresh_token}
+    )
 
-        # Verify session was deleted or invalidated (only if 200)
-        if response.status_code == 200:
-            session_count = test_db.query(Session).filter(
-                Session.user_id == test_user.id
-            ).count()
-            assert session_count == 0
+    # Must return 200 OK
+    assert response.status_code == 200
+    data = response.json()
+    assert "message" in data
+    assert "logged out" in data["message"].lower()
+
+    # Verify session was revoked (set to inactive, not deleted)
+    test_db.refresh(session)
+    assert session.is_active is False
 
 
 @pytest.mark.api
@@ -532,8 +595,8 @@ def test_password_reuse_prevention(client, test_db, test_user):
     response = client.post("/api/v1/auth/change-password",
         headers={"Authorization": f"Bearer {token}"},
         json={
-            "current_password": "testpass123",
-            "new_password": "OldPassword123!"
+            "old_password": "Test@Pass9word!",  # test_user's actual password
+            "new_password": "Old@Pass9word!"  # This password is in the history
         }
     )
 
@@ -561,17 +624,46 @@ def test_failed_login_attempts_tracking(client, test_db):
     test_db.add(user)
     test_db.commit()
 
+    # Verify starts at 0
+    assert user.failed_login_attempts == 0
+
     # Make 3 failed login attempts
-    for _ in range(3):
-        client.post("/api/v1/auth/login", json={
+    for i in range(3):
+        response = client.post("/api/v1/auth/login", json={
             "email": "locktest@example.com",
             "password": "Wrong@Pass8word!"
         })
 
-    # Check if attempts were tracked
+        # May get rate limited when running full test suite
+        if response.status_code == 429:
+            import pytest
+            pytest.skip("Rate limited - login endpoint rate limit reached")
+
+        assert response.status_code == 401  # Wrong password
+
+        # Verify counter increments after each attempt
+        test_db.refresh(user)
+        assert user.failed_login_attempts == i + 1
+
+    # Final verification: should be exactly 3
     test_db.refresh(user)
-    # Implementation may track failed attempts
-    assert user.failed_login_attempts >= 0
+    assert user.failed_login_attempts == 3
+
+    # Successful login should reset counter
+    response = client.post("/api/v1/auth/login", json={
+        "email": "locktest@example.com",
+        "password": "Correct@Pass8!"
+    })
+
+    # May get rate limited
+    if response.status_code == 429:
+        import pytest
+        pytest.skip("Rate limited - login endpoint rate limit reached")
+
+    assert response.status_code == 200
+
+    test_db.refresh(user)
+    assert user.failed_login_attempts == 0  # Counter reset after success
 
 
 @pytest.mark.api
@@ -584,24 +676,42 @@ def test_account_lockout_after_failures(client, test_db):
         hashed_password=hash_password("Correct@Pass8!"),
         is_active=True,
         is_verified=True,
-        failed_login_attempts=0
+        failed_login_attempts=4  # Start at 4 to avoid rate limiting
     )
     test_db.add(user)
     test_db.commit()
 
-    # Make many failed attempts (assuming 5 is the limit)
-    for _ in range(6):
-        response = client.post("/api/v1/auth/login", json={
-            "email": "lockout@example.com",
-            "password": "Wrong@Pass8word!"
-        })
+    # Make 1 more failed attempt to trigger lockout (5th attempt = lockout)
+    response = client.post("/api/v1/auth/login", json={
+        "email": "lockout@example.com",
+        "password": "Wrong@Pass8word!"
+    })
 
-    # Next attempt should be locked even with correct password
+    # May get rate limited when running full test suite
+    if response.status_code == 429:
+        import pytest
+        pytest.skip("Rate limited - login endpoint rate limit reached")
+
+    assert response.status_code == 401  # Should fail with wrong password
+
+    # Verify lockout was triggered
+    test_db.refresh(user)
+    assert user.failed_login_attempts == 5
+    assert user.account_locked_until is not None
+    assert user.account_locked_until > datetime.utcnow()
+
+    # Try with CORRECT password - should still be locked out
     response = client.post("/api/v1/auth/login", json={
         "email": "lockout@example.com",
         "password": "Correct@Pass8!"
     })
 
-    # May return 403 or 429 if lockout is implemented
-    # 401 if not implemented yet
-    assert response.status_code in [401, 403, 429]
+    # May get rate limited
+    if response.status_code == 429:
+        import pytest
+        pytest.skip("Rate limited - login endpoint rate limit reached")
+
+    # Must return 403 Forbidden (account locked)
+    assert response.status_code == 403
+    assert "locked" in response.json()["detail"].lower()
+    assert "failed login attempts" in response.json()["detail"].lower()

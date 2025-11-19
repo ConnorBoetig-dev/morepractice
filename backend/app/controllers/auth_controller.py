@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from app.services.auth_service import (
     create_user,        # ← SERVICE: Inserts user into database
     get_user_by_email,  # ← SERVICE: Queries database for user by email
+    get_user_by_username,  # ← SERVICE: Queries database for user by username
 )
 
 # Import User model for direct queries in password reset/verification
@@ -113,6 +114,14 @@ async def signup(
             detail="Email already registered.",
         )
 
+    # Step 1.1: Check if username is already taken
+    existing_username = get_user_by_username(db, username)
+    if existing_username:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already taken.",
+        )
+
     # Step 1.5: Validate password strength (NEW: Enterprise password policy)
     from app.utils.password_policy import validate_password_strength
     is_valid, errors = validate_password_strength(password)
@@ -178,8 +187,12 @@ async def signup(
         "access_token": access_token,
         "token_type": "bearer",  # ← OAuth 2.0 bearer token standard
         "refresh_token": refresh_token,  # ← New: For getting new access tokens
-        "user_id": user.id,
-        "username": user.username,
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "username": user.username,
+            "is_verified": user.is_verified,
+        }
     }
 
 
@@ -207,14 +220,31 @@ def login(
     This controller does NOT query the database directly!
     """
 
-    # Step 1: Look up user by email
-    # Call SERVICE to query database
+    # Step 1: Look up user by email or username
+    # Try email first, then username if not found
     user = get_user_by_email(db, email)  # ← SERVICE does the database query
     if not user:
-        # Business logic: generic error prevents email enumeration attacks
+        # Try username if email lookup failed
+        user = get_user_by_username(db, email)  # email parameter may contain username
+    if not user:
+        # Business logic: generic error prevents email/username enumeration attacks
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password.",
+        )
+
+    # Step 1.5: Check if account is disabled (banned/suspended by admin)
+    if not user.is_active:
+        create_audit_log(
+            db, user.id, "login_failed",
+            ip_address=ip_address,
+            user_agent=user_agent,
+            details="Login attempt on disabled account",
+            success=False
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account has been disabled. Please contact support for assistance."
         )
 
     # Step 2: Check if account is locked
@@ -283,8 +313,12 @@ def login(
         "access_token": access_token,
         "token_type": "bearer",  # ← OAuth 2.0 bearer token standard
         "refresh_token": refresh_token,  # ← New: For getting new access tokens
-        "user_id": user.id,
-        "username": user.username,
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "username": user.username,
+            "is_verified": user.is_verified,
+        }
     }
 
 
@@ -527,20 +561,33 @@ async def change_password(
             detail="Incorrect current password"
         )
 
-    # Step 3: Update password
-    from app.services.auth_service import update_user
+    # Step 3: Validate password and create hash with history tracking
+    from app.services.auth_service import validate_and_create_password, update_user
+    is_valid, errors, password_hash = validate_and_create_password(
+        db, user.id, new_password,
+        ip_address=ip_address,
+        reason="user_changed"
+    )
+
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Password validation failed: {'; '.join(errors)}"
+        )
+
+    # Step 4: Update password with the validated hash
     update_user(db, user.id, {
-        "hashed_password": hash_password(new_password)
+        "hashed_password": password_hash
     })
 
-    # Step 4: Log successful password change
+    # Step 5: Log successful password change
     create_audit_log(
         db, user_id, "password_change",
         ip_address=ip_address,
         details="Password changed successfully"
     )
 
-    # Step 5: Send confirmation email
+    # Step 6: Send confirmation email
     try:
         from app.services.email_service import send_password_changed_email
         await send_password_changed_email(user.email, user.username)

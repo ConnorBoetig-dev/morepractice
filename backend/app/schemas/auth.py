@@ -123,11 +123,41 @@ class SignupRequest(BaseModel):
 class LoginRequest(BaseModel):
     """Request body for POST /auth/login"""
 
-    email: EmailStr  # ← Must be valid email format
+    email: str  # ← Can be either email or username
     password: str    # ← Plain text password (compared with bcrypt hash in database)
+
+    @field_validator('email')
+    @classmethod
+    def validate_email_or_username(cls, v: str) -> str:
+        """
+        Validates that input is either a valid email OR a valid username
+        """
+        if not v or len(v.strip()) == 0:
+            raise ValueError('Email or username is required')
+
+        v = v.strip()
+
+        # Check if it's a valid email format
+        if '@' in v:
+            # Basic email validation
+            email_pattern = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+            if not re.match(email_pattern, v):
+                raise ValueError('Invalid email format')
+        else:
+            # If no @, treat as username and validate username format
+            # Username: 3-50 chars, alphanumeric, underscore, hyphen
+            if len(v) < 3:
+                raise ValueError('Username must be at least 3 characters long')
+            if len(v) > 50:
+                raise ValueError('Username must be at most 50 characters long')
+            if not re.match(r'^[a-zA-Z0-9_-]+$', v):
+                raise ValueError('Username can only contain letters, numbers, underscores, and hyphens')
+
+        return v
 
     # Example valid request body:
     # {"email": "user@example.com", "password": "SecurePass123"}
+    # {"email": "username", "password": "SecurePass123"}
 
 
 # ============================================
@@ -135,6 +165,14 @@ class LoginRequest(BaseModel):
 # ============================================
 # Used by: app/api/v1/auth_routes.py → signup_route(), login_route()
 # Returned after successful signup or login
+class UserInfo(BaseModel):
+    """User information returned in auth responses"""
+    id: int
+    email: str
+    username: str
+    is_verified: bool
+
+
 class TokenResponse(BaseModel):
     """Response after successful authentication - contains JWT tokens"""
 
@@ -142,15 +180,14 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"     # ← OAuth 2.0 standard bearer token format
     refresh_token: str             # ← Long-lived refresh token (valid for 7 days)
 
-    user_id: int                   # ← User's database ID
-    username: str                  # ← User's display name
+    user: UserInfo                 # ← User information object
 
     # Example response:
     # {
     #   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     #   "token_type": "bearer",
     #   "refresh_token": "abc123def456...",
-    #   "user_id": 1,
+    #   "user": {"id": 1, "email": "user@example.com", "username": "user", "is_verified": true}
     #   "username": "john_doe"
     # }
 
