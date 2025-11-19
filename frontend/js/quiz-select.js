@@ -10,6 +10,8 @@ const errorDiv = document.getElementById('error-message');
 const formDiv = document.getElementById('quiz-config-form');
 const statsDiv = document.getElementById('exam-stats');
 const examSelect = document.getElementById('exam-select');
+const domainGroup = document.getElementById('domain-group');
+const domainSelect = document.getElementById('domain-select');
 const quizForm = document.getElementById('quiz-form');
 
 const EXAM_NAMES = {
@@ -96,11 +98,46 @@ function displayExamStats(exams) {
     statsDiv.innerHTML = statsHTML;
 }
 
+async function loadDomains(examType) {
+    try {
+        domainSelect.innerHTML = '<option value="">All Objectives (Mixed)</option>';
+
+        const domainsURL = `${ENDPOINTS.DOMAINS}?exam_type=${examType}`;
+        const response = await apiRequest('GET', domainsURL);
+
+        if (response.domains && response.domains.length > 0) {
+            response.domains.forEach(domain => {
+                const option = document.createElement('option');
+                option.value = domain.domain;
+                option.textContent = `${domain.domain} (${domain.question_count} questions)`;
+                domainSelect.appendChild(option);
+            });
+            domainGroup.style.display = 'block';
+        } else {
+            domainGroup.style.display = 'none';
+        }
+    } catch (error) {
+        console.error('Error loading domains:', error);
+        domainGroup.style.display = 'none';
+    }
+}
+
+// Load domains when exam type is selected
+examSelect.addEventListener('change', function() {
+    const examType = examSelect.value;
+    if (examType) {
+        loadDomains(examType);
+    } else {
+        domainGroup.style.display = 'none';
+    }
+});
+
 quizForm.addEventListener('submit', function(event) {
     event.preventDefault();
     const formData = new FormData(quizForm);
     const examType = formData.get('exam_type');
     const count = formData.get('count');
+    const domain = formData.get('domain');
 
     if (!examType) {
         errorDiv.style.display = 'block';
@@ -108,7 +145,10 @@ quizForm.addEventListener('submit', function(event) {
         return;
     }
 
-    const quizURL = `quiz.html?exam_type=${examType}&count=${count}`;
+    let quizURL = `quiz.html?exam_type=${examType}&count=${count}`;
+    if (domain) {
+        quizURL += `&domain=${domain}`;
+    }
     window.location.href = quizURL;
 });
 

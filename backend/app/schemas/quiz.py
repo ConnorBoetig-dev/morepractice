@@ -146,3 +146,67 @@ class QuizHistoryResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ================================================================
+# QUIZ REVIEW SCHEMAS
+# ================================================================
+
+class QuestionReviewDetail(BaseModel):
+    """
+    Detailed question information for review
+    Includes user's answer, correct answer, and explanations
+    """
+    question_id: int = Field(..., description="Database ID of the question")
+    question_text: str = Field(..., description="The question text")
+    domain: str = Field(..., description="CompTIA domain/objective")
+    user_answer: str = Field(..., description="User's selected answer")
+    correct_answer: str = Field(..., description="The correct answer")
+    is_correct: bool = Field(..., description="Whether user answered correctly")
+    time_spent_seconds: Optional[int] = Field(None, description="Time spent on this question")
+
+    # All options with text and explanations
+    options: dict = Field(..., description="All answer options with explanations")
+
+    # Helpful computed fields
+    user_answer_text: str = Field(..., description="Text of user's selected answer")
+    correct_answer_text: str = Field(..., description="Text of correct answer")
+    user_answer_explanation: str = Field(..., description="Explanation for user's answer")
+    correct_answer_explanation: str = Field(..., description="Explanation for correct answer")
+
+
+class DomainPerformance(BaseModel):
+    """
+    Performance breakdown by domain
+    """
+    domain: str = Field(..., description="Domain identifier (e.g., '1.1', '2.3')")
+    total_questions: int = Field(..., description="Total questions in this domain")
+    correct_answers: int = Field(..., description="Number of correct answers")
+    accuracy_percentage: float = Field(..., description="Accuracy percentage for this domain")
+
+
+class QuizReviewResponse(BaseModel):
+    """
+    Complete quiz review with all questions, answers, and explanations
+    Returned when user wants to review their answers after completing a quiz
+    """
+    # Quiz Metadata
+    quiz_attempt_id: int = Field(..., description="Database ID of this quiz attempt")
+    exam_type: str = Field(..., description="Exam type (security, network, etc.)")
+    completed_at: datetime = Field(..., description="When the quiz was completed")
+
+    # Overall Performance
+    total_questions: int = Field(..., description="Total number of questions")
+    correct_answers: int = Field(..., description="Number of correct answers")
+    score_percentage: float = Field(..., description="Overall score percentage")
+    time_taken_seconds: Optional[int] = Field(None, description="Total time spent on quiz")
+    xp_earned: int = Field(..., description="XP earned from this quiz")
+
+    # Detailed Review
+    questions: List[QuestionReviewDetail] = Field(..., description="Detailed review of each question")
+
+    # Performance Analytics
+    domain_performance: List[DomainPerformance] = Field(
+        default_factory=list,
+        description="Performance breakdown by domain"
+    )

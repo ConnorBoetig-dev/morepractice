@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Achievement Management - Billings Admin</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <style>
+        .achievements-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .achievement-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .achievement-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .achievement-icon {
+            font-size: 3em;
+            margin-right: 15px;
+        }
+
+        .achievement-info {
+            flex: 1;
+        }
+
+        .achievement-name {
+            font-size: 1.2em;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .achievement-description {
+            color: #666;
+            font-size: 0.9em;
+            line-height: 1.4;
+            margin-bottom: 10px;
+        }
+
+        .achievement-criteria {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.85em;
+            margin-bottom: 10px;
+        }
+
+        .achievement-meta {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .meta-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: 600;
+        }
+
+        .rarity-common {
+            background: #e0e0e0;
+            color: #666;
+        }
+
+        .rarity-rare {
+            background: #bbdefb;
+            color: #1976d2;
+        }
+
+        .rarity-epic {
+            background: #e1bee7;
+            color: #7b1fa2;
+        }
+
+        .rarity-legendary {
+            background: #ffe082;
+            color: #f57f17;
+        }
+
+        .hidden-badge {
+            background: #ffcdd2;
+            color: #c62828;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .form-grid-full {
+            grid-column: 1 / -1;
+        }
+
+        .header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="admin.html" class="nav-brand">Billings Admin</a>
+            <div class="nav-links">
+                <a href="admin.html" class="nav-link">Dashboard</a>
+                <a href="admin-questions.html" class="nav-link">Questions</a>
+                <a href="admin-achievements.html" class="nav-link active">Achievements</a>
+                <a href="admin-users.html" class="nav-link">Users</a>
+            </div>
+            <div class="nav-actions">
+                <button id="nav-logout" class="button button-danger-outline">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Header -->
+        <div class="header-actions">
+            <div>
+                <h2>🏆 Achievement Management <span id="total-count">(0)</span></h2>
+                <p style="color: #666; margin-top: 5px;">Create and manage platform achievements</p>
+            </div>
+            <button id="create-achievement-btn" class="button button-primary">+ Create Achievement</button>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading-state" style="text-align: center; padding: 40px; color: #999;">
+            Loading achievements...
+        </div>
+
+        <!-- Empty State -->
+        <div id="empty-state" style="display: none; text-align: center; padding: 40px; color: #999;">
+            No achievements yet. Create your first achievement!
+        </div>
+
+        <!-- Achievements Grid -->
+        <div id="achievements-grid" class="achievements-grid" style="display: none;">
+        </div>
+    </div>
+
+    <!-- Create/Edit Modal -->
+    <div id="achievement-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Create Achievement</h2>
+                <button class="close-btn" id="close-modal">×</button>
+            </div>
+
+            <form id="achievement-form">
+                <div class="form-grid">
+                    <div class="form-group form-grid-full">
+                        <label>Achievement Name *</label>
+                        <input type="text" id="achievement-name" required placeholder="e.g., First Steps">
+                    </div>
+
+                    <div class="form-group form-grid-full">
+                        <label>Description *</label>
+                        <textarea id="achievement-description" required placeholder="What does the user need to do?"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Icon *</label>
+                        <input type="text" id="achievement-icon" required placeholder="🎯">
+                        <small style="color: #999;">Emoji or icon identifier</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Rarity *</label>
+                        <select id="achievement-rarity" required>
+                            <option value="common">Common</option>
+                            <option value="rare">Rare</option>
+                            <option value="epic">Epic</option>
+                            <option value="legendary">Legendary</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Criteria Type *</label>
+                        <select id="criteria-type" required>
+                            <option value="quiz_count">Quiz Count</option>
+                            <option value="perfect_quiz">Perfect Quiz</option>
+                            <option value="high_score">High Score</option>
+                            <option value="streak">Streak Days</option>
+                            <option value="level">Level Reached</option>
+                            <option value="exam_specific">Exam-Specific</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Criteria Value *</label>
+                        <input type="number" id="criteria-value" required min="1" placeholder="e.g., 10">
+                        <small style="color: #999;">Required amount/threshold</small>
+                    </div>
+
+                    <div class="form-group" id="exam-type-group" style="display: none;">
+                        <label>Exam Type (for exam_specific)</label>
+                        <select id="criteria-exam-type">
+                            <option value="">None</option>
+                            <option value="security">Security+</option>
+                            <option value="network">Network+</option>
+                            <option value="a1101">A+ 1101</option>
+                            <option value="a1102">A+ 1102</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>XP Reward</label>
+                        <input type="number" id="xp-reward" min="0" value="50" placeholder="50">
+                        <small style="color: #999;">Bonus XP for unlocking</small>
+                    </div>
+
+                    <div class="form-group form-grid-full">
+                        <label>
+                            <input type="checkbox" id="is-hidden">
+                            Hidden Achievement (surprise unlock)
+                        </label>
+                    </div>
+                </div>
+
+                <input type="hidden" id="editing-id">
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                    <button type="button" id="cancel-btn" class="button button-secondary-outline">Cancel</button>
+                    <button type="submit" class="button button-primary">Save Achievement</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="module" src="js/admin-achievements.js"></script>
+</body>
+</html>

@@ -8,7 +8,7 @@ Endpoints:
 - GET /api/v1/quiz/stats - Get quiz statistics
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
 from sqlalchemy.orm import Session
 
 # Import centralized rate limiter
@@ -16,8 +16,11 @@ from app.utils.rate_limit import limiter, RATE_LIMITS
 
 from app.db.session import get_db
 from app.utils.auth import get_current_user_id
-from app.schemas.quiz import QuizSubmission, QuizSubmissionResponse, QuizHistoryResponse
+from app.schemas.quiz import QuizSubmission, QuizSubmissionResponse, QuizHistoryResponse, QuizReviewResponse
 from app.controllers import quiz_controller
+from app.services import email_service
+from app.models.user import User, UserProfile
+from app.models.gamification import Achievement
 
 
 # Create router
@@ -34,6 +37,7 @@ router = APIRouter(prefix="/quiz", tags=["quiz"])
 async def submit_quiz(
     request: Request,
     submission: QuizSubmission,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user_id: int = Depends(get_current_user_id)
 ):
@@ -92,7 +96,45 @@ async def submit_quiz(
     """
     # Apply rate limit: 10 quiz submissions per minute per IP
     try:
-        return quiz_controller.submit_quiz(db, current_user_id, submission)
+        # Submit quiz and get results
+        response = quiz_controller.submit_quiz(db, current_user_id, submission)
+
+        # Send achievement unlock emails in background if any achievements were unlocked
+        if response.achievements_unlocked and len(response.achievements_unlocked) > 0:
+            # Get user data for email
+            user = db.query(User).filter(User.id == current_user_id).first()
+            profile = db.query(UserProfile).filter(UserProfile.user_id == current_user_id).first()
+
+            if user and user.email:
+                # Get total quiz count
+                from app.models.quiz import QuizAttempt
+                quiz_count = db.query(QuizAttempt).filter(QuizAttempt.user_id == current_user_id).count()
+
+                # Get total achievements unlocked
+                from app.models.user import UserAchievement
+                total_achievements = db.query(UserAchievement).filter(UserAchievement.user_id == current_user_id).count()
+
+                # Send email for each achievement unlocked
+                for ach in response.achievements_unlocked:
+                    # Get full achievement details from database
+                    achievement = db.query(Achievement).filter(Achievement.id == ach.achievement_id).first()
+                    if achievement:
+                        background_tasks.add_task(
+                            email_service.send_achievement_notification,
+                            email=user.email,
+                            username=user.username,
+                            achievement_name=achievement.name,
+                            achievement_description=achievement.description,
+                            achievement_icon=achievement.icon,
+                            achievement_rarity=achievement.rarity,
+                            xp_reward=achievement.xp_reward,
+                            total_achievements=total_achievements,
+                            current_level=response.current_level,
+                            total_xp=response.total_xp,
+                            quiz_count=quiz_count
+                        )
+
+        return response
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -233,4 +275,88 @@ async def get_quiz_stats(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get quiz stats: {str(e)}"
+        )
+
+
+@router.get(
+    "/review/{attempt_id}",
+    response_model=QuizReviewResponse,
+    summary="Get detailed quiz review"
+)
+@limiter.limit(RATE_LIMITS["standard"])  # 30/minute rate limit
+async def get_quiz_review(
+    request: Request,
+    attempt_id: int,
+    db: Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id)
+):
+    """
+    Get detailed review of a quiz attempt with answers and explanations
+
+    **Rate limit:** 30 requests per minute per IP
+
+    **Path Parameters:**
+    - `attempt_id`: ID of the quiz attempt to review
+
+    **Response:**
+    ```json
+    {
+        "quiz_attempt_id": 456,
+        "exam_type": "security",
+        "completed_at": "2025-11-17T10:30:00",
+        "total_questions": 30,
+        "correct_answers": 24,
+        "score_percentage": 80.0,
+        "time_taken_seconds": 1800,
+        "xp_earned": 240,
+        "questions": [
+            {
+                "question_id": 123,
+                "question_text": "Which security control...",
+                "domain": "1.1",
+                "user_answer": "A",
+                "correct_answer": "B",
+                "is_correct": false,
+                "time_spent_seconds": 45,
+                "options": {
+                    "A": {"text": "Deterrent", "explanation": "Incorrect - ..."},
+                    "B": {"text": "Preventive", "explanation": "Correct - ..."},
+                    "C": {"text": "Detective", "explanation": "Incorrect - ..."},
+                    "D": {"text": "Corrective", "explanation": "Incorrect - ..."}
+                },
+                "user_answer_text": "Deterrent",
+                "correct_answer_text": "Preventive",
+                "user_answer_explanation": "Incorrect - ...",
+                "correct_answer_explanation": "Correct - ..."
+            }
+        ],
+        "domain_performance": [
+            {
+                "domain": "1.1",
+                "total_questions": 10,
+                "correct_answers": 8,
+                "accuracy_percentage": 80.0
+            }
+        ]
+    }
+    ```
+
+    **Use Cases:**
+    - Review answers after completing a quiz
+    - Identify weak areas by domain
+    - Study explanations for incorrect answers
+    - Track performance by CompTIA objective
+
+    **Authentication:** Requires valid JWT token
+    **Authorization:** Only the user who took the quiz can review it
+    """
+    # Apply rate limit: 30 requests per minute per IP
+    try:
+        return quiz_controller.get_quiz_review(db, attempt_id, current_user_id)
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions from controller
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get quiz review: {str(e)}"
         )

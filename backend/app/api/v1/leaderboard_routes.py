@@ -19,7 +19,6 @@ from app.schemas.leaderboard import (
     QuizCountLeaderboardResponse,
     AccuracyLeaderboardResponse,
     StreakLeaderboardResponse,
-    ExamSpecificLeaderboardResponse,
     LeaderboardEntry
 )
 
@@ -123,7 +122,7 @@ async def get_quiz_count_leaderboard(
 async def get_accuracy_leaderboard(
     request: Request,
     limit: int = Query(100, ge=1, le=500, description="Number of top users to return"),
-    minimum_quizzes: int = Query(10, ge=1, le=100, description="Minimum quizzes to qualify"),
+    minimum_quizzes: int = Query(1, ge=1, le=100, description="Minimum quizzes to qualify"),
     time_period: str = Query("all_time", regex="^(all_time|monthly|weekly)$", description="Time period filter"),
     db: Session = Depends(get_db),
     current_user_id: Optional[int] = None
@@ -133,11 +132,11 @@ async def get_accuracy_leaderboard(
 
     **Rate limit:** 20 requests per minute per IP (protects expensive database queries)
 
-    Only includes users with minimum number of quizzes completed.
+    Shows users with at least 1 quiz completed (accuracy calculated from first quiz).
 
     Query Parameters:
         - limit: Number of top users to return (1-500, default 100)
-        - minimum_quizzes: Minimum quizzes required to qualify (1-100, default 10)
+        - minimum_quizzes: Minimum quizzes required to qualify (1-100, default 1)
         - time_period: Time period filter (all_time, monthly, weekly)
 
     Returns:
@@ -211,61 +210,3 @@ async def get_streak_leaderboard(
         )
 
 
-@router.get("/exam/{exam_type}", response_model=ExamSpecificLeaderboardResponse)
-@limiter.limit(RATE_LIMITS["leaderboard"])  # 20/minute rate limit
-async def get_exam_specific_leaderboard(
-    request: Request,
-    exam_type: str,
-    limit: int = Query(100, ge=1, le=500, description="Number of top users to return"),
-    time_period: str = Query("all_time", regex="^(all_time|monthly|weekly)$", description="Time period filter"),
-    db: Session = Depends(get_db),
-    current_user_id: Optional[int] = None
-):
-    """
-    Get leaderboard for a specific exam type
-
-    **Rate limit:** 20 requests per minute per IP (protects expensive database queries)
-
-    Sorted by number of quizzes completed for that exam.
-
-    Path Parameters:
-        - exam_type: Exam type (security, network, a1101, a1102)
-
-    Query Parameters:
-        - limit: Number of top users to return (1-500, default 100)
-        - time_period: Time period filter (all_time, monthly, weekly)
-
-    Returns:
-        Leaderboard with top users for specific exam and current user's entry if authenticated
-    """
-
-    # Validate exam type
-    valid_exam_types = ['security', 'network', 'a1101', 'a1102', 'a_plus_core_1', 'a_plus_core_2', 'network_plus', 'security_plus']
-    if exam_type not in valid_exam_types:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid exam type. Must be one of: {', '.join(valid_exam_types)}"
-        )
-
-    try:
-        data = leaderboard_service.get_exam_specific_leaderboard(
-            db,
-            exam_type=exam_type,
-            limit=limit,
-            time_period=time_period,
-            current_user_id=current_user_id
-        )
-
-        return ExamSpecificLeaderboardResponse(
-            leaderboard_type="exam_specific",
-            exam_type=data["exam_type"],
-            time_period=data["time_period"],
-            total_users=data["total_users"],
-            entries=[LeaderboardEntry(**entry) for entry in data["entries"]],
-            current_user_entry=LeaderboardEntry(**data["current_user_entry"]) if data["current_user_entry"] else None
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch exam-specific leaderboard: {str(e)}"
-        )

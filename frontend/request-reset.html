@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Password - Billings</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!--
+        PASSWORD RESET REQUEST PAGE
+
+        Purpose: Allow users to request a password reset email
+
+        Flow:
+        1. User enters their email address
+        2. Backend generates secure reset token
+        3. Email sent with reset link
+        4. User clicks link to go to reset-password.html
+    -->
+
+    <div class="container">
+        <div class="form-container">
+            <div class="form-header">
+                <h1>🔑 Reset Password</h1>
+                <p>Enter your email to receive a password reset link</p>
+            </div>
+
+            <!-- PASSWORD RESET REQUEST FORM -->
+            <form id="reset-request-form" class="form">
+                <!-- Email Input -->
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        required
+                        placeholder="you@example.com"
+                        autocomplete="email"
+                    >
+                </div>
+
+                <!-- ERROR MESSAGE -->
+                <div id="error-message" class="error-message" style="display: none;"></div>
+
+                <!-- SUCCESS MESSAGE -->
+                <div id="success-message" class="success-message" style="display: none;"></div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="button button-primary button-full">
+                    Send Reset Link
+                </button>
+
+                <!-- LOADING INDICATOR -->
+                <div id="loading" style="display: none; text-align: center; margin-top: 10px;">
+                    <p>Sending email...</p>
+                </div>
+            </form>
+
+            <!-- Links -->
+            <div class="form-footer">
+                <p>Remember your password? <a href="login.html">Log in</a></p>
+                <p><a href="index.html">← Back to home</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script type="module">
+        import { API_FULL_BASE } from './js/config.js';
+
+        const form = document.getElementById('reset-request-form');
+        const errorMessage = document.getElementById('error-message');
+        const successMessage = document.getElementById('success-message');
+        const loading = document.getElementById('loading');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Get form data
+            const email = document.getElementById('email').value;
+
+            // Hide previous messages
+            errorMessage.style.display = 'none';
+            successMessage.style.display = 'none';
+            loading.style.display = 'block';
+
+            try {
+                // Make API request
+                const response = await fetch(`${API_FULL_BASE}/auth/request-reset`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email })
+                });
+
+                const data = await response.json();
+
+                loading.style.display = 'none';
+
+                if (response.ok) {
+                    // Show success message
+                    successMessage.textContent = data.message || 'Password reset email sent! Check your inbox.';
+                    successMessage.style.display = 'block';
+
+                    // Clear form
+                    form.reset();
+                } else {
+                    // Show error message
+                    errorMessage.textContent = data.detail || 'Failed to send reset email';
+                    errorMessage.style.display = 'block';
+                }
+            } catch (error) {
+                loading.style.display = 'none';
+                errorMessage.textContent = 'Network error. Please try again.';
+                errorMessage.style.display = 'block';
+                console.error('Error:', error);
+            }
+        });
+    </script>
+</body>
+</html>

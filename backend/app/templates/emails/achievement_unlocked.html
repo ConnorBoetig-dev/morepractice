@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Achievement Unlocked!</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f7f9;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 40px auto;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .achievement-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            margin: 30px 0;
+            border: 3px solid #ffd700;
+        }
+        .achievement-icon {
+            font-size: 80px;
+            margin-bottom: 15px;
+        }
+        .achievement-name {
+            font-size: 24px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .achievement-description {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .achievement-meta {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .meta-badge {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .rarity-common {
+            background: #e0e0e0;
+            color: #666;
+        }
+        .rarity-rare {
+            background: #bbdefb;
+            color: #1976d2;
+        }
+        .rarity-epic {
+            background: #e1bee7;
+            color: #7b1fa2;
+        }
+        .rarity-legendary {
+            background: #ffe082;
+            color: #f57f17;
+        }
+        .xp-badge {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+        .stats-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 40px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            margin: 20px 0;
+        }
+        .footer {
+            background: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🎉 Achievement Unlocked!</h1>
+            <p style="margin: 10px 0 0 0; opacity: 0.9;">Congratulations, {{ username }}!</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <p style="font-size: 18px; margin-top: 0;">
+                Great job! You've just unlocked a new achievement:
+            </p>
+
+            <!-- Achievement Card -->
+            <div class="achievement-card">
+                <div class="achievement-icon">{{ achievement_icon }}</div>
+                <div class="achievement-name">{{ achievement_name }}</div>
+                <div class="achievement-description">{{ achievement_description }}</div>
+                <div class="achievement-meta">
+                    <span class="meta-badge rarity-{{ achievement_rarity }}">{{ achievement_rarity|upper }}</span>
+                    {% if xp_reward > 0 %}
+                    <span class="meta-badge xp-badge">+{{ xp_reward }} XP</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Stats Section -->
+            {% if total_achievements %}
+            <div class="stats-section">
+                <h3 style="margin: 0 0 10px 0;">Your Progress</h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value">{{ total_achievements }}</div>
+                        <div class="stat-label">Total Achievements</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">{{ current_level }}</div>
+                        <div class="stat-label">Current Level</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">{{ total_xp }}</div>
+                        <div class="stat-label">Total XP</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">{{ quiz_count }}</div>
+                        <div class="stat-label">Quizzes Completed</div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- CTA -->
+            <div style="text-align: center;">
+                <a href="{{ dashboard_url }}" class="cta-button">View Your Achievements</a>
+            </div>
+
+            <p style="color: #666; font-size: 14px; margin-top: 30px;">
+                Keep up the great work! Every quiz brings you closer to mastering your CompTIA certification.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>
+                <strong>Billings</strong> - Your CompTIA Practice Exam Platform<br>
+                <a href="{{ dashboard_url }}">Dashboard</a> •
+                <a href="{{ achievements_url }}">Achievements</a> •
+                <a href="{{ quiz_url }}">Take a Quiz</a>
+            </p>
+            <p style="margin-top: 20px; font-size: 12px; color: #999;">
+                You're receiving this email because you unlocked an achievement on Billings.<br>
+                If you don't want to receive achievement notifications, you can update your preferences in settings.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

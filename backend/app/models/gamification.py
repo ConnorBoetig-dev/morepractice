@@ -151,17 +151,20 @@ class Achievement(Base):
     # Achievement Details
     name = Column(String, nullable=False, unique=True)
     description = Column(Text, nullable=False)
-    badge_icon_url = Column(String, nullable=True)  # URL to badge image
+    icon = Column(String, nullable=False, default="🏆")  # Icon/emoji for achievement
+    badge_icon_url = Column(String, nullable=True)  # URL to badge image (deprecated, use icon)
 
     # Unlock Criteria (stored as metadata, logic in achievement_service)
-    criteria_type = Column(String, nullable=False, index=True)  # e.g., "questions_correct", "quiz_streak", "accuracy"
+    criteria_type = Column(String, nullable=False, index=True)  # e.g., "quiz_count", "perfect_quiz", "high_score", "streak", "level", "exam_specific"
     criteria_value = Column(Integer, nullable=False)  # e.g., 100 questions, 7 days, 90%
+    criteria_exam_type = Column(String, nullable=True)  # For exam-specific achievements (security, network, a1101, a1102)
 
     # Rewards
     xp_reward = Column(Integer, nullable=False, default=0)
     unlocks_avatar_id = Column(Integer, ForeignKey("avatars.id", ondelete="SET NULL"), nullable=True)
 
     # Metadata
+    rarity = Column(String, nullable=False, default="common")  # common, rare, epic, legendary
     display_order = Column(Integer, nullable=False, default=0)  # For sorting in UI
     is_hidden = Column(Boolean, nullable=False, default=False)  # Secret achievements
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)

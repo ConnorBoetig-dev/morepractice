@@ -66,10 +66,13 @@ from fastapi import FastAPI, Request
 # Without CORS, browsers block cross-origin requests (frontend on :5173, backend on :8000)
 from fastapi.middleware.cors import CORSMiddleware
 
+# Security Headers Middleware - adds security headers to all responses
+from app.middleware.security_headers import SecurityHeadersMiddleware
+
 # Rate limiting - protects API from abuse and DDoS attacks
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from app.utils.rate_limit import limiter  # Import centralized limiter
+from app.utils.rate_limit import limiter, user_limiter, user_only_limiter  # Import rate limiters
 
 # SQLAlchemy components for database setup
 # Defined in: app/db/base.py
@@ -86,7 +89,7 @@ from app.db.session import engine  # ← Database engine (connection to PostgreS
 # SQLAlchemy needs to see these imports to know what tables to create
 
 # User models - defined in: app/models/user.py
-from app.models.user import User, UserProfile
+from app.models.user import User, UserProfile, Session, AuditLog, PasswordHistory
 
 # Question model - defined in: app/models/question.py
 from app.models.question import Question
@@ -111,8 +114,14 @@ Base.metadata.create_all(bind=engine)
 # ============================================
 app = FastAPI(title="Billings API")  # Creates the FastAPI app instance
 
-# Add rate limiter to app state (makes it accessible to routes)
+# Add rate limiters to app state (makes them accessible to routes)
+# Multiple limiters allow different strategies:
+# - limiter: IP-based (for public endpoints)
+# - user_limiter: User ID or IP-based (for authenticated endpoints)
+# - user_only_limiter: User ID only (strict authenticated endpoints)
 app.state.limiter = limiter
+app.state.user_limiter = user_limiter
+app.state.user_only_limiter = user_only_limiter
 
 # Register rate limit exceeded handler (returns 429 status)
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -136,6 +145,25 @@ app.add_middleware(
     allow_methods=["*"],  # Allow all HTTP methods (GET, POST, PUT, DELETE)
     allow_headers=["*"],  # Allow all headers (Content-Type, Authorization, etc.)
 )
+
+
+# ============================================
+# CONFIGURE SECURITY HEADERS MIDDLEWARE
+# ============================================
+# Add security headers to all responses (OWASP best practices)
+# Protects against: XSS, clickjacking, MIME sniffing, etc.
+#
+# Headers added:
+# - X-Content-Type-Options: nosniff
+# - X-Frame-Options: DENY
+# - X-XSS-Protection: 1; mode=block
+# - Content-Security-Policy: (prevents XSS and injection)
+# - Referrer-Policy: strict-origin-when-cross-origin
+# - Permissions-Policy: (disables sensitive browser features)
+#
+# NOTE: HSTS (Strict-Transport-Security) is disabled by default for local dev
+# Enable in production by setting environment variable: ENABLE_HSTS=true
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 # ============================================
@@ -164,6 +192,10 @@ from app.api.v1.avatar_routes import router as avatar_router
 # Import router from leaderboard routes file
 # Defined in: app/api/v1/leaderboard_routes.py
 from app.api.v1.leaderboard_routes import router as leaderboard_router
+
+# Import router from admin routes file
+# Defined in: app/api/v1/admin_routes.py
+from app.api.v1.admin_routes import router as admin_router
 
 # Register the auth router with /api/v1 prefix
 # This creates routes:
@@ -210,6 +242,21 @@ app.include_router(avatar_router, prefix="/api/v1")
 #   - GET /api/v1/leaderboard/streak
 #   - GET /api/v1/leaderboard/exam/{exam_type}
 app.include_router(leaderboard_router, prefix="/api/v1")
+
+# Register the admin router with /api/v1 prefix
+# This creates routes (admin-only):
+#   - GET    /api/v1/admin/questions - List questions with pagination
+#   - POST   /api/v1/admin/questions - Create new question
+#   - GET    /api/v1/admin/questions/{id} - Get question details
+#   - PUT    /api/v1/admin/questions/{id} - Update question
+#   - DELETE /api/v1/admin/questions/{id} - Delete question
+#   - GET    /api/v1/admin/users - List users with pagination
+#   - GET    /api/v1/admin/users/{id} - Get user details
+#   - GET    /api/v1/admin/achievements - List all achievements
+#   - POST   /api/v1/admin/achievements - Create achievement
+#   - PUT    /api/v1/admin/achievements/{id} - Update achievement
+#   - DELETE /api/v1/admin/achievements/{id} - Delete achievement
+app.include_router(admin_router, prefix="/api/v1")
 
 
 # ============================================

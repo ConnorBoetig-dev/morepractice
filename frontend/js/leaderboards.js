@@ -16,13 +16,10 @@ const loading = document.getElementById('loading');
 const errorMessage = document.getElementById('error-message');
 const leaderboardContainer = document.getElementById('leaderboard-container');
 const emptyState = document.getElementById('empty-state');
-const examSelector = document.getElementById('exam-selector');
-const examTypeSelect = document.getElementById('exam-type-select');
 
 // Leaderboard tabs
 const tabs = document.querySelectorAll('.leaderboard-tab');
 let currentLeaderboard = 'xp';
-let currentExamType = 'security_plus';
 
 // Initialize
 loadLeaderboard('xp');
@@ -36,26 +33,13 @@ tabs.forEach(tab => {
         tabs.forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
 
-        // Show/hide exam selector
-        if (leaderboardType === 'exam') {
-            examSelector.style.display = 'block';
-            currentLeaderboard = 'exam';
-            loadLeaderboard('exam', currentExamType);
-        } else {
-            examSelector.style.display = 'none';
-            currentLeaderboard = leaderboardType;
-            loadLeaderboard(leaderboardType);
-        }
+        // Load selected leaderboard
+        currentLeaderboard = leaderboardType;
+        loadLeaderboard(leaderboardType);
     });
 });
 
-// Exam type change
-examTypeSelect.addEventListener('change', (e) => {
-    currentExamType = e.target.value;
-    loadLeaderboard('exam', currentExamType);
-});
-
-async function loadLeaderboard(type, examType = null) {
+async function loadLeaderboard(type) {
     try {
         loading.style.display = 'block';
         leaderboardContainer.style.display = 'none';
@@ -77,9 +61,6 @@ async function loadLeaderboard(type, examType = null) {
                 break;
             case 'streak':
                 endpoint = ENDPOINTS.LEADERBOARD_STREAK;
-                break;
-            case 'exam':
-                endpoint = `${ENDPOINTS.LEADERBOARD_EXAM}/${examType}`;
                 break;
         }
 
@@ -140,8 +121,6 @@ function getStatsColumns(type) {
             return '<th>Accuracy</th>';
         case 'streak':
             return '<th>Streak</th>';
-        case 'exam':
-            return '<th>Average Score</th>';
         default:
             return '';
     }
@@ -167,11 +146,9 @@ function getStatsValues(entry, type) {
         case 'quiz-count':
             return `<td class="leaderboard-stat-highlight">${formatNumber(entry.score)}</td>`;
         case 'accuracy':
-            return `<td class="leaderboard-stat-highlight">${entry.score?.toFixed(1)}%</td>`;
+            return `<td class="leaderboard-stat-highlight">${entry.score}%</td>`;
         case 'streak':
             return `<td class="leaderboard-stat-highlight">${formatNumber(entry.score)} days</td>`;
-        case 'exam':
-            return `<td class="leaderboard-stat-highlight">${entry.score?.toFixed(1)}%</td>`;
         default:
             return '';
     }

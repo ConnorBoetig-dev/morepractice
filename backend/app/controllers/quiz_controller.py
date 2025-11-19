@@ -16,7 +16,8 @@ from app.schemas.quiz import (
     QuizSubmissionResponse,
     AchievementUnlocked,
     QuizHistoryResponse,
-    QuizAttemptSummary
+    QuizAttemptSummary,
+    QuizReviewResponse
 )
 from app.services import quiz_service, achievement_service, profile_service
 from app.models.user import UserProfile
@@ -171,3 +172,39 @@ def get_quiz_stats(db: Session, user_id: int) -> dict:
         Dictionary with quiz statistics
     """
     return quiz_service.get_user_quiz_stats(db, user_id)
+
+
+def get_quiz_review(db: Session, quiz_attempt_id: int, user_id: int) -> QuizReviewResponse:
+    """
+    Get detailed review of a quiz attempt
+
+    Includes:
+    - All questions with user answers and correct answers
+    - Explanations for all answer choices
+    - Domain performance breakdown
+    - Overall quiz statistics
+
+    Args:
+        db: Database session
+        quiz_attempt_id: ID of quiz attempt to review
+        user_id: ID of authenticated user (for ownership verification)
+
+    Returns:
+        QuizReviewResponse with complete quiz review data
+
+    Raises:
+        HTTPException 404: If quiz attempt not found or doesn't belong to user
+    """
+    from fastapi import HTTPException, status
+
+    # Get quiz review data from service
+    review_data = quiz_service.get_quiz_review(db, quiz_attempt_id, user_id)
+
+    if not review_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Quiz attempt {quiz_attempt_id} not found or you don't have permission to view it"
+        )
+
+    # Convert to Pydantic response schema
+    return QuizReviewResponse(**review_data)

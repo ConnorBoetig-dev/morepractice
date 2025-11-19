@@ -36,8 +36,10 @@ export const ENDPOINTS = {
 
     // Question/Quiz endpoints
     EXAMS: `${API_FULL_BASE}/questions/exams`,
-    QUIZ: `${API_FULL_BASE}/questions/quiz`,  // Use with query params: ?exam_type=security&count=30
+    DOMAINS: `${API_FULL_BASE}/questions/domains`,  // Use with query param: ?exam_type=security
+    QUIZ: `${API_FULL_BASE}/questions/quiz`,  // Use with query params: ?exam_type=security&count=30&domain=1.1
     QUIZ_SUBMIT: `${API_FULL_BASE}/quiz/submit`,
+    QUIZ_REVIEW: `${API_FULL_BASE}/quiz/review`,  // Use with path param: /review/{attempt_id}
 
     // Achievement endpoints
     ACHIEVEMENTS_ME: `${API_FULL_BASE}/achievements/me`,
@@ -51,7 +53,11 @@ export const ENDPOINTS = {
     LEADERBOARD_QUIZ_COUNT: `${API_FULL_BASE}/leaderboard/quiz-count`,
     LEADERBOARD_ACCURACY: `${API_FULL_BASE}/leaderboard/accuracy`,
     LEADERBOARD_STREAK: `${API_FULL_BASE}/leaderboard/streak`,
-    LEADERBOARD_EXAM: `${API_FULL_BASE}/leaderboard/exam`, // Use with /{exam_type}
+
+    // Admin endpoints (require admin authentication)
+    ADMIN_QUESTIONS: `${API_FULL_BASE}/admin/questions`,
+    ADMIN_USERS: `${API_FULL_BASE}/admin/users`,
+    ADMIN_ACHIEVEMENTS: `${API_FULL_BASE}/admin/achievements`
 };
 
 /*

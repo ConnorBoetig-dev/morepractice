@@ -107,3 +107,148 @@ def update_user(db: Session, user_id: int, updates: dict) -> User:
     db.commit()                          # ← EXECUTE: SQL UPDATE users SET ... WHERE id = ...
     db.refresh(user)                     # Reload from database
     return user                          # ← Returns updated User model
+
+
+# ============================================
+# PASSWORD HISTORY & POLICY SERVICES
+# ============================================
+
+from app.models.user import PasswordHistory
+from app.utils.auth import verify_password
+from app.utils.password_policy import (
+    validate_password_strength,
+    PASSWORD_HISTORY_COUNT
+)
+from typing import Optional
+
+
+def check_password_in_history(
+    db: Session,
+    user_id: int,
+    plain_password: str,
+    history_count: int = PASSWORD_HISTORY_COUNT
+) -> bool:
+    """
+    Check if password has been used before (prevent reuse)
+
+    Args:
+        db: Database session
+        user_id: User ID
+        plain_password: Plain text password to check
+        history_count: Number of previous passwords to check (default: 5)
+
+    Returns:
+        True if password was used before, False if it's new
+    """
+    # Get last N password hashes for this user
+    password_history = db.query(PasswordHistory)\
+        .filter(PasswordHistory.user_id == user_id)\
+        .order_by(PasswordHistory.changed_at.desc())\
+        .limit(history_count)\
+        .all()
+
+    # Check if new password matches any previous password
+    for history_entry in password_history:
+        if verify_password(plain_password, history_entry.password_hash):
+            return True  # Password was used before
+
+    return False  # Password is new
+
+
+def add_password_to_history(
+    db: Session,
+    user_id: int,
+    password_hash: str,
+    ip_address: Optional[str] = None,
+    user_agent: Optional[str] = None,
+    reason: str = "user_changed"
+):
+    """
+    Add password to history and clean up old entries
+
+    Args:
+        db: Database session
+        user_id: User ID
+        password_hash: Bcrypt hash of the password
+        ip_address: IP address where change occurred
+        user_agent: Browser/device user agent
+        reason: Reason for change ("signup", "user_changed", "password_reset", "admin_forced")
+    """
+    # Create new password history entry
+    history_entry = PasswordHistory(
+        user_id=user_id,
+        password_hash=password_hash,
+        changed_at=datetime.utcnow(),
+        changed_from_ip=ip_address,
+        user_agent=user_agent,
+        change_reason=reason
+    )
+
+    db.add(history_entry)
+
+    # Clean up old password history (keep only last N passwords)
+    # Get all history entries for this user
+    all_history = db.query(PasswordHistory)\
+        .filter(PasswordHistory.user_id == user_id)\
+        .order_by(PasswordHistory.changed_at.desc())\
+        .all()
+
+    # Delete entries beyond the retention limit
+    if len(all_history) >= PASSWORD_HISTORY_COUNT:
+        entries_to_delete = all_history[PASSWORD_HISTORY_COUNT:]
+        for entry in entries_to_delete:
+            db.delete(entry)
+
+    db.commit()
+
+
+def validate_and_create_password(
+    db: Session,
+    user_id: int,
+    plain_password: str,
+    ip_address: Optional[str] = None,
+    user_agent: Optional[str] = None,
+    reason: str = "user_changed"
+) -> tuple[bool, list[str], Optional[str]]:
+    """
+    Validate password policy and create hash (all-in-one function)
+
+    This function:
+    1. Validates password strength (complexity requirements)
+    2. Checks password history (prevents reuse)
+    3. Creates password hash
+    4. Adds to password history
+
+    Args:
+        db: Database session
+        user_id: User ID (0 for new users during signup)
+        plain_password: Plain text password
+        ip_address: IP address where change occurred
+        user_agent: Browser/device user agent
+        reason: Reason for change
+
+    Returns:
+        Tuple of (is_valid, errors, password_hash)
+        - is_valid: True if password meets all requirements
+        - errors: List of validation errors (empty if valid)
+        - password_hash: Bcrypt hash if valid, None if invalid
+    """
+    # Step 1: Validate password strength
+    is_strong, strength_errors = validate_password_strength(plain_password)
+    if not is_strong:
+        return (False, strength_errors, None)
+
+    # Step 2: Check password history (skip for new users)
+    if user_id > 0:
+        was_used_before = check_password_in_history(db, user_id, plain_password)
+        if was_used_before:
+            return (False, [f"Password was recently used. Please choose a different password (last {PASSWORD_HISTORY_COUNT} passwords cannot be reused)"], None)
+
+    # Step 3: Create password hash
+    password_hash = hash_password(plain_password)
+
+    # Step 4: Add to password history (skip for new users - will be added after user creation)
+    if user_id > 0:
+        add_password_to_history(db, user_id, password_hash, ip_address, user_agent, reason)
+
+    return (True, [], password_hash)

@@ -9,6 +9,7 @@
 
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
+from typing import Optional
 
 # Import centralized rate limiter
 from app.utils.rate_limit import limiter, RATE_LIMITS
@@ -24,7 +25,8 @@ from app.controllers import question_controller
 # Import Pydantic schemas for response validation
 from app.schemas.question import (
     ExamTypesResponse,
-    QuizResponse
+    QuizResponse,
+    DomainsResponse
 )
 
 
@@ -107,6 +109,88 @@ async def get_exams_route(
 
 
 # ================================================================
+# GET DOMAINS FOR EXAM TYPE ENDPOINT
+# ================================================================
+# HTTP: GET /api/v1/questions/domains?exam_type=security
+# Purpose: Return list of domains for a specific exam type with question counts
+# Authentication: Not required (public endpoint)
+# ================================================================
+
+@router.get(
+    "/domains",
+    response_model=DomainsResponse,
+    summary="Get Domains for Exam Type",
+    description="Returns a list of all domains (objectives) for a specific exam type with question counts"
+)
+@limiter.limit(RATE_LIMITS["standard"])  # 30/minute rate limit
+async def get_domains_route(
+    request: Request,
+    exam_type: str = Query(
+        ...,  # Required parameter
+        description="Exam type to get domains for",
+        example="security"
+    ),
+    db: Session = Depends(get_db)  # Database session injected by FastAPI
+):
+    """
+    API ENDPOINT: Get list of domains for an exam type
+
+    HTTP Method: GET
+    URL: /api/v1/questions/domains?exam_type=security
+    Authentication: Not required
+    **Rate limit:** 30 requests per minute per IP
+
+    Query Parameters:
+        exam_type (string, required):
+            - Exam type to get domains for
+            - Valid values: "security", "network", "a1101", "a1102"
+            - Example: "security"
+
+    Response:
+        200 OK - Returns DomainsResponse
+        {
+            "exam_type": "security",
+            "domains": [
+                {"domain": "1.1", "question_count": 45},
+                {"domain": "1.2", "question_count": 32},
+                {"domain": "2.1", "question_count": 28}
+            ]
+        }
+
+    Response Codes:
+        200: Success - Returns list of domains with question counts
+        404: Not Found - Exam type doesn't exist
+        429: Too Many Requests - Rate limit exceeded
+        500: Server error - Database connection failed
+
+    Example Usage:
+        curl "http://localhost:8000/api/v1/questions/domains?exam_type=security"
+
+        JavaScript:
+        const response = await fetch('http://localhost:8000/api/v1/questions/domains?exam_type=security');
+        const data = await response.json();
+        console.log(data.domains);  // [{"domain": "1.1", "question_count": 45}, ...]
+
+    Implementation Flow:
+        1. FastAPI validates query parameter (exam_type)
+        2. Rate limiter checks if IP has exceeded limit
+        3. FastAPI injects database session via Depends(get_db)
+        4. Call controller to orchestrate domain retrieval
+        5. Controller validates exam type exists (404 if not)
+        6. Controller calls service to get domains with counts
+        7. Service executes: SELECT domain, COUNT(*) FROM questions WHERE exam_type = ? GROUP BY domain
+        8. Response automatically validated by Pydantic schema
+        9. FastAPI returns JSON response
+    """
+    # Apply rate limit: 30 requests per minute per IP
+    # Call controller to handle domain retrieval
+    return question_controller.get_domains_controller(
+        db=db,
+        exam_type=exam_type
+    )
+
+
+# ================================================================
 # GET RANDOM QUIZ QUESTIONS ENDPOINT
 # ================================================================
 # HTTP: GET /api/v1/questions/quiz?exam_type=security&count=30
@@ -118,7 +202,7 @@ async def get_exams_route(
     "/quiz",
     response_model=QuizResponse,
     summary="Get Random Quiz Questions",
-    description="Returns N random questions for a specific exam type"
+    description="Returns N random questions for a specific exam type, optionally filtered by domain"
 )
 @limiter.limit(RATE_LIMITS["standard"])  # 30/minute rate limit
 async def get_quiz_route(
@@ -135,13 +219,18 @@ async def get_quiz_route(
         description="Number of questions to include in quiz",
         example=30
     ),
+    domain: Optional[str] = Query(
+        None,  # Optional parameter
+        description="Optional domain filter (e.g., '1.1', '2.3')",
+        example="1.1"
+    ),
     db: Session = Depends(get_db)  # Database session injected by FastAPI
 ):
     """
     API ENDPOINT: Get random quiz questions for an exam type
 
     HTTP Method: GET
-    URL: /api/v1/questions/quiz?exam_type=security&count=30
+    URL: /api/v1/questions/quiz?exam_type=security&count=30&domain=1.1
     Authentication: Not required
     **Rate limit:** 30 requests per minute per IP
 
@@ -157,6 +246,11 @@ async def get_quiz_route(
             - Minimum: 1
             - Maximum: 100
             - Example: 30
+
+        domain (string, optional):
+            - Optional domain filter
+            - Example: "1.1", "2.3"
+            - If not provided, returns random questions from all domains
 
     Response:
         200 OK - Returns QuizResponse
@@ -232,5 +326,6 @@ async def get_quiz_route(
     return question_controller.get_quiz_controller(
         db=db,
         exam_type=exam_type,
-        count=count
+        count=count,
+        domain=domain
     )

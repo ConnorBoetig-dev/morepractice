@@ -132,3 +132,47 @@ class QuizResponse(BaseModel):
     requested_count: int = Field(..., description="Number of questions user requested")
     actual_count: int = Field(..., description="Actual number of questions returned (may be less if not enough available)")
     questions: List[QuestionResponse] = Field(..., description="Array of random questions")
+
+
+# ================================================================
+# DOMAIN RESPONSE SCHEMA - Single Domain with Question Count
+# ================================================================
+# Used by: GET /api/v1/questions/domains endpoint
+# ================================================================
+
+class DomainResponse(BaseModel):
+    """
+    Single domain with question count.
+
+    Example Response:
+        {
+            "domain": "1.1",
+            "question_count": 45
+        }
+    """
+    domain: str = Field(..., description="CompTIA domain/objective (e.g., '1.1', '2.3')")
+    question_count: int = Field(..., description="Number of questions available in this domain")
+
+
+# ================================================================
+# DOMAINS RESPONSE SCHEMA - List of Domains for an Exam
+# ================================================================
+# Used by: GET /api/v1/questions/domains endpoint
+# ================================================================
+
+class DomainsResponse(BaseModel):
+    """
+    List of domains for a specific exam type with question counts.
+
+    Example Response:
+        {
+            "exam_type": "security",
+            "domains": [
+                {"domain": "1.1", "question_count": 45},
+                {"domain": "1.2", "question_count": 32},
+                {"domain": "2.1", "question_count": 28}
+            ]
+        }
+    """
+    exam_type: str = Field(..., description="The exam type these domains belong to")
+    domains: List[DomainResponse] = Field(..., description="List of domains with question counts")

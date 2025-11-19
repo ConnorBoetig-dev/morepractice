@@ -121,7 +121,7 @@ def test_user(test_db):
     user = User(
         email="test@example.com",
         username="testuser",
-        hashed_password=hash_password("testpass123"),
+        hashed_password=hash_password("Test@Pass9word!"),
         is_active=True,
         is_verified=False
     )

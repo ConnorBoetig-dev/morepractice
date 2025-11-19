@@ -43,7 +43,8 @@ function getURLParameters() {
     const params = new URLSearchParams(window.location.search);
     return {
         exam_type: params.get('exam_type'),
-        count: params.get('count') || '10'
+        count: params.get('count') || '10',
+        domain: params.get('domain') || null
     };
 }
 
@@ -61,7 +62,10 @@ async function loadQuiz() {
         errorDiv.style.display = 'none';
         quizContainer.style.display = 'none';
 
-        const quizURL = `${ENDPOINTS.QUIZ}?exam_type=${params.exam_type}&count=${params.count}`;
+        let quizURL = `${ENDPOINTS.QUIZ}?exam_type=${params.exam_type}&count=${params.count}`;
+        if (params.domain) {
+            quizURL += `&domain=${params.domain}`;
+        }
         const response = await apiRequest('GET', quizURL);
 
         quizState.questions = response.questions;
@@ -262,6 +266,7 @@ async function finishQuiz() {
             try {
                 const response = await apiRequest('POST', ENDPOINTS.QUIZ_SUBMIT, submissionData, true);
                 gamificationData = {
+                    quiz_attempt_id: response.quiz_attempt_id,
                     xp_earned: response.xp_earned,
                     total_xp: response.total_xp,
                     current_level: response.current_level,
@@ -269,13 +274,17 @@ async function finishQuiz() {
                     level_up: response.level_up,
                     achievements_unlocked: response.achievements_unlocked || []
                 };
+
+                // Redirect to quiz review page with the attempt_id
+                window.location.href = `quiz-review.html?attempt_id=${response.quiz_attempt_id}`;
+                return;
             } catch (error) {
                 console.error('Failed to submit quiz to backend:', error);
                 // Continue anyway - we'll show results without gamification
             }
         }
 
-        // Store results and gamification data
+        // Fallback: Store results and gamification data (for non-logged-in users or errors)
         sessionStorage.setItem('quizResults', JSON.stringify(resultsData));
         if (gamificationData) {
             sessionStorage.setItem('gamificationRewards', JSON.stringify(gamificationData));

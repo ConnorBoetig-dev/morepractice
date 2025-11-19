@@ -326,3 +326,104 @@ def get_user_quiz_stats(db: Session, user_id: int) -> dict:
         "total_xp_earned": total_xp,
         "stats_by_exam": stats_by_exam
     }
+
+
+# ================================================================
+# QUIZ REVIEW
+# ================================================================
+
+def get_quiz_review(db: Session, quiz_attempt_id: int, user_id: int) -> dict:
+    """
+    Get detailed review of a quiz attempt with all questions, answers, and explanations
+
+    Returns None if quiz attempt doesn't exist or doesn't belong to user
+
+    Args:
+        db: Database session
+        quiz_attempt_id: ID of the quiz attempt to review
+        user_id: ID of the user (to verify ownership)
+
+    Returns:
+        Dictionary with quiz review data including:
+        - Quiz metadata (exam_type, completed_at, score, etc.)
+        - List of questions with user answers and explanations
+        - Domain performance breakdown
+    """
+    from app.models.question import Question
+    from collections import defaultdict
+
+    # Get quiz attempt with user verification
+    quiz_attempt = db.query(QuizAttempt)\
+        .filter(QuizAttempt.id == quiz_attempt_id)\
+        .filter(QuizAttempt.user_id == user_id)\
+        .first()
+
+    if not quiz_attempt:
+        return None
+
+    # Get all user answers for this quiz attempt with question details
+    user_answers = db.query(UserAnswer, Question)\
+        .join(Question, UserAnswer.question_id == Question.id)\
+        .filter(UserAnswer.quiz_attempt_id == quiz_attempt_id)\
+        .all()
+
+    # Build question review details
+    questions_review = []
+    domain_stats = defaultdict(lambda: {"total": 0, "correct": 0})
+
+    for answer, question in user_answers:
+        # Extract answer texts and explanations from options
+        options = question.options
+        user_answer_text = options.get(answer.user_answer, {}).get("text", "")
+        correct_answer_text = options.get(answer.correct_answer, {}).get("text", "")
+        user_answer_explanation = options.get(answer.user_answer, {}).get("explanation", "")
+        correct_answer_explanation = options.get(answer.correct_answer, {}).get("explanation", "")
+
+        question_detail = {
+            "question_id": question.id,
+            "question_text": question.question_text,
+            "domain": question.domain,
+            "user_answer": answer.user_answer,
+            "correct_answer": answer.correct_answer,
+            "is_correct": answer.is_correct,
+            "time_spent_seconds": answer.time_spent_seconds,
+            "options": options,
+            "user_answer_text": user_answer_text,
+            "correct_answer_text": correct_answer_text,
+            "user_answer_explanation": user_answer_explanation,
+            "correct_answer_explanation": correct_answer_explanation
+        }
+
+        questions_review.append(question_detail)
+
+        # Track domain performance
+        domain_stats[question.domain]["total"] += 1
+        if answer.is_correct:
+            domain_stats[question.domain]["correct"] += 1
+
+    # Calculate domain performance
+    domain_performance = []
+    for domain, stats in domain_stats.items():
+        accuracy = (stats["correct"] / stats["total"] * 100) if stats["total"] > 0 else 0
+        domain_performance.append({
+            "domain": domain,
+            "total_questions": stats["total"],
+            "correct_answers": stats["correct"],
+            "accuracy_percentage": round(accuracy, 2)
+        })
+
+    # Sort domain performance by domain name
+    domain_performance.sort(key=lambda x: x["domain"])
+
+    return {
+        "quiz_attempt_id": quiz_attempt.id,
+        "exam_type": quiz_attempt.exam_type,
+        "completed_at": quiz_attempt.completed_at,
+        "total_questions": quiz_attempt.total_questions,
+        "correct_answers": quiz_attempt.correct_answers,
+        "score_percentage": quiz_attempt.score_percentage,
+        "time_taken_seconds": quiz_attempt.time_taken_seconds,
+        "xp_earned": quiz_attempt.xp_earned,
+        "questions": questions_review,
+        "domain_performance": domain_performance
+    }

@@ -255,3 +255,116 @@ def get_current_user_id(
         )
 
     return user_id
+
+
+# ============================================
+# DEPENDENCY: Get Admin User (Admin-Only Routes)
+# ============================================
+# This is a FastAPI DEPENDENCY for admin-protected routes
+# Ensures user is authenticated AND has admin privileges
+
+def get_admin_user(
+    current_user = Depends(get_current_user)
+):
+    """
+    FastAPI DEPENDENCY: Verify user is an admin
+
+    This dependency builds on top of get_current_user() by adding an additional
+    check to ensure the user has admin privileges (is_admin = True).
+
+    Usage in admin routes:
+    @router.get("/admin/users")
+    def list_users(admin: User = Depends(get_admin_user)):
+        # Only admins can access this route
+        return users
+
+    Process:
+    1. get_current_user() validates JWT token and fetches User from DB
+    2. Check if user.is_admin is True
+    3. Return User if admin, raise 403 Forbidden if not
+
+    Returns:
+        User: Authenticated admin user
+
+    Raises:
+        HTTPException 401: If token is invalid (from get_current_user)
+        HTTPException 403: If user is not an admin
+    """
+    # Check if user has admin privileges
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin privileges required. You do not have permission to access this resource.",
+        )
+
+    return current_user
+
+
+def get_admin_user_id(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+) -> int:
+    """
+    FastAPI DEPENDENCY: Get admin user ID (lightweight version)
+
+    This is the admin equivalent of get_current_user_id().
+    It validates the token AND checks admin status with minimal database overhead.
+
+    Use this when you only need the admin's user_id and don't need the full User object.
+
+    Usage in admin routes:
+    @router.post("/admin/questions")
+    def create_question(admin_id: int = Depends(get_admin_user_id)):
+        # Only admins can access, admin_id is their user_id
+        pass
+
+    Returns:
+        int: Admin user's ID
+
+    Raises:
+        HTTPException 401: If token is invalid or expired
+        HTTPException 403: If user is not an admin
+    """
+    # Extract and validate token
+    token = credentials.credentials
+    payload = decode_access_token(token)
+
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Extract user_id from payload
+    user_id: int = payload.get("user_id")
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Query database to check admin status
+    # Import User model here to avoid circular imports
+    from app.models.user import User
+    from app.services.auth_service import get_user_by_id
+
+    user = get_user_by_id(db, user_id)
+
+    # If user not found
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Check admin privileges
+    if not user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin privileges required. You do not have permission to access this resource.",
+        )
+
+    return user_id

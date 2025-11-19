@@ -10,7 +10,7 @@
 
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
-from typing import List
+from typing import List, Optional
 
 # Import service layer functions
 from app.services import question_service
@@ -19,7 +19,9 @@ from app.services import question_service
 from app.schemas.question import (
     ExamTypesResponse,
     QuizResponse,
-    QuestionResponse
+    QuestionResponse,
+    DomainsResponse,
+    DomainResponse
 )
 
 
@@ -90,7 +92,8 @@ def get_exams_controller(db: Session) -> ExamTypesResponse:
 def get_quiz_controller(
     db: Session,
     exam_type: str,
-    count: int
+    count: int,
+    domain: Optional[str] = None
 ) -> QuizResponse:
     """
     CONTROLLER OPERATION: Generate a random quiz for an exam type
@@ -100,11 +103,12 @@ def get_quiz_controller(
         - Quiz size must be between MIN_QUIZ_SIZE and MAX_QUIZ_SIZE
         - If requested count > available questions, return all available
         - Questions are randomized at database level (efficient)
+        - Optionally filter by domain
 
     Flow:
         1. Validate exam type exists
         2. Validate and cap quiz size
-        3. Get available question count
+        3. Get available question count (with domain filter if provided)
         4. Adjust count if not enough questions
         5. Query random questions from database
         6. Format response with metadata
@@ -113,6 +117,7 @@ def get_quiz_controller(
         db: Database session (injected by FastAPI Depends)
         exam_type: Exam to generate quiz for (e.g., 'security')
         count: Number of questions requested
+        domain: Optional domain filter (e.g., '1.1', '2.3')
 
     Returns:
         QuizResponse with exam metadata and questions array
@@ -187,13 +192,14 @@ def get_quiz_controller(
     # STEP 5: QUERY RANDOM QUESTIONS
     # ============================================================
     # Service handles randomization at database level
-    # Query: SELECT * FROM questions WHERE exam_type = ? ORDER BY RANDOM() LIMIT ?
+    # Query: SELECT * FROM questions WHERE exam_type = ? [AND domain = ?] ORDER BY RANDOM() LIMIT ?
     # ============================================================
 
-    questions = question_service.get_random_questions(
+    questions = question_service.get_random_questions_filtered(
         db=db,
         exam_type=exam_type,
-        count=actual_count
+        count=actual_count,
+        domain=domain
     )
 
     # ============================================================
@@ -218,4 +224,68 @@ def get_quiz_controller(
         questions=question_responses
     )
 
+    return response
+
+
+# ================================================================
+# GET DOMAINS CONTROLLER - Get Domains for an Exam Type
+# ================================================================
+# Business logic: Query domains with question counts
+# Called by: question_routes.get_domains_route()
+# ================================================================
+
+def get_domains_controller(db: Session, exam_type: str) -> DomainsResponse:
+    """
+    CONTROLLER OPERATION: Get list of domains for an exam type
+
+    Flow:
+        1. Validate exam type exists
+        2. Call service layer to query domains with counts
+        3. Format response using Pydantic schema
+        4. Return structured response
+
+    Args:
+        db: Database session (injected by FastAPI Depends)
+        exam_type: Exam type to get domains for (e.g., 'security')
+
+    Returns:
+        DomainsResponse with exam type and list of domains
+
+    Example Response:
+        {
+            "exam_type": "security",
+            "domains": [
+                {"domain": "1.1", "question_count": 45},
+                {"domain": "1.2", "question_count": 32}
+            ]
+        }
+
+    Raises:
+        HTTPException 404: If exam type doesn't exist
+    """
+    # Step 1: Validate exam type exists
+    exam_exists = question_service.validate_exam_type(db, exam_type)
+
+    if not exam_exists:
+        # Return 404 Not Found with helpful error message
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Exam type '{exam_type}' not found. Available exams: {question_service.get_available_exams(db)}"
+        )
+
+    # Step 2: Call service layer to get domains from database
+    domains_data = question_service.get_domains_by_exam(db, exam_type)
+
+    # Step 3: Format response using Pydantic schema (automatic validation)
+    domain_responses = [
+        DomainResponse(**domain_dict)
+        for domain_dict in domains_data
+    ]
+
+    response = DomainsResponse(
+        exam_type=exam_type,
+        domains=domain_responses
+    )
+
+    # Step 4: Return structured response
     return response

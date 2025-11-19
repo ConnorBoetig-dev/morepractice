@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Review - Billings</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <style>
+        .review-header {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .review-header h1 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+
+        .review-meta {
+            display: flex;
+            gap: 30px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .meta-stat {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .meta-stat-label {
+            font-size: 0.85em;
+            color: #999;
+            margin-bottom: 5px;
+        }
+
+        .meta-stat-value {
+            font-size: 1.5em;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .score-value {
+            color: #28a745;
+        }
+
+        .domain-performance {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .domain-performance h2 {
+            margin: 0 0 20px 0;
+            font-size: 1.3em;
+        }
+
+        .domain-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .domain-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .domain-name {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .domain-accuracy {
+            font-size: 1.8em;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .domain-questions {
+            font-size: 0.85em;
+            color: #666;
+        }
+
+        .review-question {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .question-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .question-number {
+            font-weight: 600;
+            color: #666;
+        }
+
+        .question-domain {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 5px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .question-result {
+            font-weight: 600;
+            padding: 5px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+        }
+
+        .result-correct {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .result-incorrect {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .question-text {
+            font-size: 1.1em;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .review-option {
+            padding: 15px;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            background: #f8f9fa;
+            border: 2px solid transparent;
+        }
+
+        .review-option.user-answer {
+            border-color: #ffc107;
+            background: #fff3cd;
+        }
+
+        .review-option.correct-answer {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+
+        .review-option.user-incorrect {
+            border-color: #dc3545;
+            background: #f8d7da;
+        }
+
+        .option-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .option-badge {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            font-weight: 600;
+        }
+
+        .badge-correct {
+            background: #28a745;
+            color: white;
+        }
+
+        .badge-your-answer {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .option-text {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .option-explanation {
+            margin-top: 8px;
+            padding-left: 10px;
+            border-left: 3px solid #ddd;
+            color: #666;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="nav-brand">Billings</a>
+            <div class="nav-links">
+                <a href="dashboard.html" class="nav-link">Dashboard</a>
+                <a href="quiz-select.html" class="nav-link">Practice Quiz</a>
+                <a href="achievements.html" class="nav-link">Achievements</a>
+                <a href="avatars.html" class="nav-link">Avatars</a>
+                <a href="leaderboards.html" class="nav-link">Leaderboards</a>
+            </div>
+            <div class="nav-actions">
+                <a href="login.html" id="nav-login" class="button button-secondary-outline">Login</a>
+                <a href="signup.html" id="nav-signup" class="button button-primary">Sign Up</a>
+                <button id="nav-logout" class="button button-danger-outline" style="display: none;">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Loading State -->
+        <div id="loading" class="loading-spinner">
+            <p>Loading quiz review...</p>
+        </div>
+
+        <!-- Error Message -->
+        <div id="error-message" class="error-message" style="display: none;"></div>
+
+        <!-- Review Content -->
+        <div id="review-content" style="display: none;">
+            <!-- Review Header -->
+            <div class="review-header">
+                <h1 id="review-title">Quiz Review</h1>
+                <p id="review-date" style="color: #666; margin: 5px 0 0 0;"></p>
+                <div class="review-meta">
+                    <div class="meta-stat">
+                        <span class="meta-stat-label">Score</span>
+                        <span class="meta-stat-value score-value" id="score-display">0%</span>
+                    </div>
+                    <div class="meta-stat">
+                        <span class="meta-stat-label">Questions</span>
+                        <span class="meta-stat-value" id="questions-display">0/0</span>
+                    </div>
+                    <div class="meta-stat">
+                        <span class="meta-stat-label">Time Taken</span>
+                        <span class="meta-stat-value" id="time-display">0m 0s</span>
+                    </div>
+                    <div class="meta-stat">
+                        <span class="meta-stat-label">XP Earned</span>
+                        <span class="meta-stat-value" id="xp-display">0 XP</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Domain Performance -->
+            <div id="domain-performance-section" class="domain-performance" style="display: none;">
+                <h2>📊 Performance by Domain</h2>
+                <div id="domain-grid" class="domain-grid">
+                    <!-- Domain cards populated here -->
+                </div>
+            </div>
+
+            <!-- Questions Review -->
+            <div id="questions-container">
+                <!-- Questions populated here -->
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <a href="quiz-select.html" class="button button-primary">Take Another Quiz</a>
+                <a href="dashboard.html" class="button button-secondary-outline">Back to Dashboard</a>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/quiz-review.js"></script>
+</body>
+</html>

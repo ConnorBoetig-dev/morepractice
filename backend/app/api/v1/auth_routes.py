@@ -20,11 +20,40 @@ from app.db.session import get_db
 from app.controllers.auth_controller import (
     signup,  # ← Handles signup workflow
     login,   # ← Handles login workflow
+    request_password_reset,  # ← Handles password reset request
+    reset_password,  # ← Handles password reset confirmation
+    send_email_verification,  # ← Handles email verification request
+    verify_email,  # ← Handles email verification confirmation
+    change_password,  # ← Handles password change (while authenticated)
+    delete_account,  # ← Handles account deletion
+    refresh_access_token,  # ← Handles refresh token exchange
+    logout,  # ← Handles logout (session revocation)
+    logout_all_devices,  # ← Handles logout from all devices
+    get_active_sessions,  # ← Get user's active sessions
+    get_audit_logs,  # ← Get user's audit logs
+    update_profile,  # ← Update user profile
 )
 
 # Pydantic schemas - FastAPI uses these to validate requests/responses
 # Defined in: app/schemas/auth.py
-from app.schemas.auth import SignupRequest, LoginRequest, TokenResponse, UserResponse
+from app.schemas.auth import (
+    SignupRequest,
+    LoginRequest,
+    TokenResponse,
+    UserResponse,
+    PasswordResetRequest,
+    PasswordResetConfirm,
+    EmailVerificationRequest,
+    EmailVerificationConfirm,
+    MessageResponse,
+    ChangePasswordRequest,
+    DeleteAccountRequest,
+    RefreshTokenRequest,
+    RefreshTokenResponse,
+    UpdateProfileRequest,
+    SessionResponse,
+    AuditLogResponse,
+)
 
 # Auth utility - for JWT validation and user extraction
 # Defined in: app/utils/auth.py
@@ -34,8 +63,30 @@ from app.utils.auth import get_current_user
 # Defined in: app/models/user.py
 from app.models.user import User
 
+# For typing
+from typing import Optional, List
+
 # Create a router specifically for auth endpoints
 router = APIRouter(prefix="/auth", tags=["Auth"])
+
+
+# ============================================
+# HELPER FUNCTIONS
+# ============================================
+
+def get_client_ip(request: Request) -> Optional[str]:
+    """Extract client IP address from request"""
+    # Check for forwarded IP (behind proxy/load balancer)
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    # Otherwise use direct client IP
+    return request.client.host if request.client else None
+
+
+def get_user_agent(request: Request) -> Optional[str]:
+    """Extract user agent from request"""
+    return request.headers.get("User-Agent")
 
 # POST /api/v1/auth/signup - User registration endpoint
 @router.post("/signup", response_model=TokenResponse)
@@ -59,11 +110,13 @@ async def signup_route(
     """
     # Call controller - controller will orchestrate services
     # Calls: app/controllers/auth_controller.py → signup()
-    return signup(
+    return await signup(
         db=db,
         email=payload.email,
         password=payload.password,
         username=payload.username,
+        ip_address=get_client_ip(request),
+        user_agent=get_user_agent(request),
     )
 
 
@@ -87,12 +140,14 @@ async def login_route(
     4. This route calls login() CONTROLLER (does NOT do logic itself)
     5. Controller validates credentials and returns token
     """
-    # Call controller - controller will verify password and generate token
+    # Call controller - controller will verify password and generate tokens
     # Calls: app/controllers/auth_controller.py → login()
     return login(
         db=db,
         email=payload.email,
         password=payload.password,
+        ip_address=get_client_ip(request),
+        user_agent=get_user_agent(request),
     )
 
 
@@ -121,32 +176,284 @@ def get_me_route(
     return current_user  # ← User model from app/models/user.py
 
 
-# POST /api/v1/auth/logout - Logout user (client-side token removal)
-@router.post("/logout")
-def logout_route(current_user: User = Depends(get_current_user)):
+# ============================================
+# NEW AUTH ROUTES - PHASE 1, 2, 3
+# ============================================
+
+
+# POST /api/v1/auth/change-password - Change password while authenticated
+@router.post("/change-password", response_model=MessageResponse)
+@limiter.limit(RATE_LIMITS["auth_login"])
+async def change_password_route(
+    request: Request,
+    payload: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
-    Logout endpoint - informs client to remove token
+    Change password (requires old password for verification)
 
-    How JWT logout works:
-    - JWTs are STATELESS (server doesn't track active tokens)
-    - Server cannot "revoke" a token (it's valid until expiration)
-    - Client is responsible for deleting the token from storage
+    Protected Route: Requires authentication
+    Rate limit: 5 requests per minute
 
-    This endpoint:
-    1. Validates the user is authenticated (via get_current_user dependency)
-    2. Returns success message
-    3. Client must delete token from localStorage/cookies
-
-    For true server-side logout, you'd need:
-    - Token blacklist (store invalidated tokens in Redis/database)
-    - Check blacklist on every protected request
-    - More complex but provides immediate revocation
+    Different from password reset - requires current password
     """
-    # Token validation already done by get_current_user dependency
-    # No server-side state to change (JWT is stateless)
+    return await change_password(
+        db=db,
+        user_id=current_user.id,
+        old_password=payload.old_password,
+        new_password=payload.new_password,
+        ip_address=get_client_ip(request)
+    )
 
-    # Return success - client should delete token
-    return {
-        "message": "Logout successful",
-        "detail": "Please remove the access token from client storage"
-    }
+
+# DELETE /api/v1/auth/delete-account - Delete user account
+@router.delete("/delete-account", response_model=MessageResponse)
+@limiter.limit(RATE_LIMITS["auth_login"])
+def delete_account_route(
+    request: Request,
+    payload: DeleteAccountRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Delete user account (hard delete)
+
+    Protected Route: Requires authentication
+    Rate limit: 5 requests per minute
+
+    Requires password confirmation and explicit confirm flag
+    Permanently deletes all user data
+    """
+    return delete_account(
+        db=db,
+        user_id=current_user.id,
+        password=payload.password,
+        confirm=payload.confirm,
+        ip_address=get_client_ip(request)
+    )
+
+
+# POST /api/v1/auth/refresh - Refresh access token
+@router.post("/refresh", response_model=RefreshTokenResponse)
+@limiter.limit(RATE_LIMITS["auth_login"])
+def refresh_token_route(
+    request: Request,
+    payload: RefreshTokenRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Refresh access token using refresh token
+
+    Rate limit: 5 requests per minute
+
+    Exchanges valid refresh token for new access token
+    Does not require authentication (uses refresh token)
+    """
+    return refresh_access_token(
+        db=db,
+        refresh_token=payload.refresh_token,
+        ip_address=get_client_ip(request)
+    )
+
+
+# POST /api/v1/auth/logout - Logout user (revoke session)
+@router.post("/logout", response_model=MessageResponse)
+def logout_route(
+    request: Request,
+    payload: RefreshTokenRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Logout user (revoke current session)
+
+    Protected Route: Requires authentication
+
+    Revokes the refresh token session
+    Client should delete both access and refresh tokens
+    """
+    return logout(
+        db=db,
+        user_id=current_user.id,
+        refresh_token=payload.refresh_token,
+        ip_address=get_client_ip(request)
+    )
+
+
+# POST /api/v1/auth/logout-all - Logout from all devices
+@router.post("/logout-all", response_model=MessageResponse)
+def logout_all_route(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Logout from all devices (revoke all sessions)
+
+    Protected Route: Requires authentication
+
+    Revokes all active sessions for the user
+    Useful if account is compromised
+    """
+    return logout_all_devices(
+        db=db,
+        user_id=current_user.id,
+        ip_address=get_client_ip(request)
+    )
+
+
+# GET /api/v1/auth/sessions - Get active sessions
+@router.get("/sessions", response_model=List[SessionResponse])
+def get_sessions_route(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all active sessions for current user
+
+    Protected Route: Requires authentication
+
+    Returns list of active sessions with device info
+    """
+    return get_active_sessions(db=db, user_id=current_user.id)
+
+
+# GET /api/v1/auth/audit-logs - Get audit logs
+@router.get("/audit-logs", response_model=List[AuditLogResponse])
+def get_audit_logs_route(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    limit: int = 50,
+    action: Optional[str] = None
+):
+    """
+    Get audit logs for current user
+
+    Protected Route: Requires authentication
+
+    Query parameters:
+    - limit: Number of logs to return (default: 50)
+    - action: Filter by action type (optional)
+
+    Returns list of security events (login, logout, password changes, etc.)
+    """
+    return get_audit_logs(
+        db=db,
+        user_id=current_user.id,
+        limit=limit,
+        action_filter=action
+    )
+
+
+# PATCH /api/v1/auth/profile - Update user profile
+@router.patch("/profile", response_model=MessageResponse)
+@limiter.limit(RATE_LIMITS["auth_login"])
+async def update_profile_route(
+    request: Request,
+    payload: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update user profile (username and/or email)
+
+    Protected Route: Requires authentication
+    Rate limit: 5 requests per minute
+
+    Can update username and/or email
+    Email changes require re-verification
+    """
+    return await update_profile(
+        db=db,
+        user_id=current_user.id,
+        username=payload.username,
+        email=payload.email,
+        ip_address=get_client_ip(request)
+    )
+
+
+# POST /api/v1/auth/request-reset - Request password reset email
+@router.post("/request-reset", response_model=MessageResponse)
+@limiter.limit(RATE_LIMITS["auth_login"])  # 5/minute rate limit
+async def request_reset_route(
+    request: Request,
+    payload: PasswordResetRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Request password reset email
+
+    Rate limit: 5 requests per minute per IP (prevents abuse)
+
+    What happens:
+    1. Validates email format (Pydantic schema)
+    2. Rate limiter checks request frequency
+    3. Controller generates token and sends email
+    4. Returns generic success message (security: no email enumeration)
+    """
+    return await request_password_reset(db=db, email=payload.email)
+
+
+# POST /api/v1/auth/reset-password - Confirm password reset with token
+@router.post("/reset-password", response_model=MessageResponse)
+@limiter.limit(RATE_LIMITS["auth_login"])  # 5/minute rate limit
+async def reset_password_route(
+    request: Request,
+    payload: PasswordResetConfirm,
+    db: Session = Depends(get_db)
+):
+    """
+    Reset password using token from email
+
+    Rate limit: 5 requests per minute per IP (prevents brute force)
+
+    What happens:
+    1. Validates token and new password
+    2. Controller verifies token hasn't expired
+    3. Updates password in database
+    4. Clears reset token
+    """
+    return reset_password(db=db, token=payload.token, new_password=payload.new_password)
+
+
+# POST /api/v1/auth/send-verification - Send email verification
+@router.post("/send-verification", response_model=MessageResponse)
+@limiter.limit(RATE_LIMITS["auth_login"])  # 5/minute rate limit
+async def send_verification_route(
+    request: Request,
+    payload: EmailVerificationRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Send email verification link
+
+    Rate limit: 5 requests per minute per IP (prevents abuse)
+
+    What happens:
+    1. Validates email format
+    2. Controller generates verification token
+    3. Sends verification email
+    """
+    return await send_email_verification(db=db, email=payload.email)
+
+
+# POST /api/v1/auth/verify-email - Verify email with token
+@router.post("/verify-email", response_model=MessageResponse)
+@limiter.limit(RATE_LIMITS["auth_login"])  # 5/minute rate limit
+async def verify_email_route(
+    request: Request,
+    payload: EmailVerificationConfirm,
+    db: Session = Depends(get_db)
+):
+    """
+    Verify email using token from email
+
+    Rate limit: 5 requests per minute per IP (prevents brute force)
+
+    What happens:
+    1. Validates token
+    2. Controller marks email as verified
+    3. Clears verification token
+    """
+    return verify_email(db=db, token=payload.token)

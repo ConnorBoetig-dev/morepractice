@@ -385,18 +385,18 @@ def get_quiz_count_leaderboard(
 def get_accuracy_leaderboard(
     db: Session,
     limit: int = 100,
-    minimum_quizzes: int = 10,
+    minimum_quizzes: int = 1,
     time_period: str = "all_time",
     current_user_id: Optional[int] = None
 ) -> Dict[str, Any]:
     """
     Get leaderboard sorted by average accuracy
-    Only includes users with minimum number of quizzes
+    Shows users with at least 1 quiz (accuracy calculated from first quiz)
 
     Args:
         db: Database session
         limit: Number of top entries to return
-        minimum_quizzes: Minimum quizzes required to qualify
+        minimum_quizzes: Minimum quizzes required to qualify (default: 1)
         time_period: "all_time", "monthly", or "weekly"
         current_user_id: Optional user ID to include their entry
 
@@ -661,164 +661,3 @@ def get_streak_leaderboard(
     }
 
 
-def get_exam_specific_leaderboard(
-    db: Session,
-    exam_type: str,
-    limit: int = 100,
-    time_period: str = "all_time",
-    current_user_id: Optional[int] = None
-) -> Dict[str, Any]:
-    """
-    Get leaderboard for a specific exam type
-    Sorted by number of quizzes completed for that exam
-
-    Args:
-        db: Database session
-        exam_type: Exam type to filter by
-        limit: Number of top entries to return
-        time_period: "all_time", "monthly", or "weekly"
-        current_user_id: Optional user ID to include their entry
-
-    Returns:
-        dict: Leaderboard data with entries and current user entry
-    """
-
-    # Calculate date filter
-    date_filter = None
-    if time_period == "weekly":
-        date_filter = datetime.utcnow() - timedelta(days=7)
-    elif time_period == "monthly":
-        date_filter = datetime.utcnow() - timedelta(days=30)
-
-    # Build query
-    query = db.query(
-        QuizAttempt.user_id,
-        func.count(QuizAttempt.id).label('quiz_count'),
-        User.username,
-        UserProfile.level,
-        UserProfile.selected_avatar_id
-    ).join(
-        User, QuizAttempt.user_id == User.id
-    ).join(
-        UserProfile, QuizAttempt.user_id == UserProfile.user_id
-    ).filter(
-        QuizAttempt.exam_type == exam_type
-    )
-
-    # Apply time filter
-    if date_filter:
-        query = query.filter(QuizAttempt.completed_at >= date_filter)
-
-    # Group and order
-    query = query.group_by(
-        QuizAttempt.user_id,
-        User.username,
-        UserProfile.level,
-        UserProfile.selected_avatar_id
-    ).order_by(desc('quiz_count'))
-
-    # Get top N entries
-    top_entries = query.limit(limit).all()
-
-    # Build entries
-    entries = []
-    for rank, (user_id, quiz_count, username, level, avatar_id) in enumerate(top_entries, start=1):
-        avatar_url = None
-        if avatar_id:
-            avatar = db.query(Avatar).filter(Avatar.id == avatar_id).first()
-            if avatar:
-                avatar_url = avatar.image_url
-
-        entries.append({
-            "rank": rank,
-            "user_id": user_id,
-            "username": username,
-            "avatar_url": avatar_url,
-            "score": quiz_count,
-            "level": level,
-            "is_current_user": user_id == current_user_id
-        })
-
-    # Get current user's entry if not in top N
-    current_user_entry = None
-    if current_user_id:
-        user_in_top = any(entry["user_id"] == current_user_id for entry in entries)
-
-        if not user_in_top:
-            # Get user's quiz count for this exam
-            user_query = db.query(
-                func.count(QuizAttempt.id).label('quiz_count')
-            ).filter(
-                and_(
-                    QuizAttempt.user_id == current_user_id,
-                    QuizAttempt.exam_type == exam_type
-                )
-            )
-
-            if date_filter:
-                user_query = user_query.filter(QuizAttempt.completed_at >= date_filter)
-
-            user_quiz_count = user_query.scalar() or 0
-
-            if user_quiz_count > 0:
-                # Get user data
-                user_data = db.query(
-                    User.username,
-                    UserProfile.level,
-                    UserProfile.selected_avatar_id
-                ).join(
-                    UserProfile, User.id == UserProfile.user_id
-                ).filter(
-                    User.id == current_user_id
-                ).first()
-
-                if user_data:
-                    username, level, avatar_id = user_data
-
-                    # Calculate rank (count users with more quizzes for this exam)
-                    rank_subquery = db.query(QuizAttempt.user_id).filter(
-                        QuizAttempt.exam_type == exam_type
-                    ).group_by(QuizAttempt.user_id).having(
-                        func.count(QuizAttempt.id) > user_quiz_count
-                    )
-
-                    # Apply time filter to rank query if needed
-                    if date_filter:
-                        rank_subquery = rank_subquery.filter(QuizAttempt.completed_at >= date_filter)
-
-                    # Count users with more quizzes
-                    user_rank = db.query(func.count(func.distinct(QuizAttempt.user_id))).filter(
-                        QuizAttempt.user_id.in_(rank_subquery.subquery())
-                    ).scalar() + 1
-
-                    avatar_url = None
-                    if avatar_id:
-                        avatar = db.query(Avatar).filter(Avatar.id == avatar_id).first()
-                        if avatar:
-                            avatar_url = avatar.image_url
-
-                    current_user_entry = {
-                        "rank": user_rank,
-                        "user_id": current_user_id,
-                        "username": username,
-                        "avatar_url": avatar_url,
-                        "score": user_quiz_count,
-                        "level": level,
-                        "is_current_user": True
-                    }
-
-    # Get total users for this exam
-    total_query = db.query(func.count(func.distinct(QuizAttempt.user_id))).filter(
-        QuizAttempt.exam_type == exam_type
-    )
-    if date_filter:
-        total_query = total_query.filter(QuizAttempt.completed_at >= date_filter)
-    total_users = total_query.scalar() or 0
-
-    return {
-        "entries": entries,
-        "current_user_entry": current_user_entry,
-        "total_users": total_users,
-        "time_period": time_period,
-        "exam_type": exam_type
-    }

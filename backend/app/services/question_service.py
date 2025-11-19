@@ -212,3 +212,120 @@ def get_question_by_id(db: Session, question_id: int) -> Optional[Question]:
     return db.query(Question)\
         .filter(Question.id == question_id)\
         .first()
+
+
+# ================================================================
+# GET DOMAINS BY EXAM - Retrieve Unique Domains with Counts
+# ================================================================
+# Returns list of unique domains for a specific exam type with question counts
+# Called by: question_controller.get_domains_controller()
+# ================================================================
+
+def get_domains_by_exam(db: Session, exam_type: str) -> List[dict]:
+    """
+    DATABASE OPERATION: Get all unique domains for an exam type with question counts
+
+    SQL executed:
+        SELECT domain, COUNT(*) as question_count
+        FROM questions
+        WHERE exam_type = 'security'
+        GROUP BY domain
+        ORDER BY domain ASC
+
+    Args:
+        db: Database session
+        exam_type: Exam type to filter by (e.g., 'security')
+
+    Returns:
+        List of dicts with domain and question_count
+        [
+            {"domain": "1.1", "question_count": 45},
+            {"domain": "1.2", "question_count": 32},
+            {"domain": "2.1", "question_count": 28}
+        ]
+
+    Example:
+        domains = get_domains_by_exam(db, 'security')
+        # Returns: [{"domain": "1.1", "question_count": 45}, ...]
+    """
+    # Query database for unique domains with counts
+    # .filter() creates WHERE clause for exam_type (indexed column)
+    # func.count() aggregates question counts per domain
+    # .group_by() groups by domain
+    # .order_by() sorts alphabetically for consistent ordering
+    results = db.query(
+        Question.domain,
+        func.count(Question.id).label('question_count')
+    )\
+        .filter(Question.exam_type == exam_type)\
+        .group_by(Question.domain)\
+        .order_by(Question.domain)\
+        .all()
+
+    # Convert from list of tuples to list of dicts
+    return [
+        {"domain": domain, "question_count": count}
+        for domain, count in results
+    ]
+
+
+# ================================================================
+# GET RANDOM QUESTIONS WITH DOMAIN FILTER - Enhanced Version
+# ================================================================
+# Returns random questions filtered by exam type and optionally by domain
+# Called by: question_controller.get_quiz_controller()
+# ================================================================
+
+def get_random_questions_filtered(
+    db: Session,
+    exam_type: str,
+    count: int,
+    domain: Optional[str] = None
+) -> List[Question]:
+    """
+    DATABASE OPERATION: Get N random questions with optional domain filter
+
+    SQL executed (without domain filter):
+        SELECT *
+        FROM questions
+        WHERE exam_type = 'security'
+        ORDER BY RANDOM()
+        LIMIT 30
+
+    SQL executed (with domain filter):
+        SELECT *
+        FROM questions
+        WHERE exam_type = 'security' AND domain = '1.1'
+        ORDER BY RANDOM()
+        LIMIT 30
+
+    Args:
+        db: Database session
+        exam_type: Exam type to filter by (e.g., 'security', 'network')
+        count: Number of random questions to return
+        domain: Optional domain filter (e.g., '1.1', '2.3')
+
+    Returns:
+        List of Question model objects (randomized)
+
+    Example:
+        # Get random questions for Security+ exam
+        questions = get_random_questions_filtered(db, 'security', 30)
+
+        # Get random questions for Security+ domain 1.1
+        questions = get_random_questions_filtered(db, 'security', 30, domain='1.1')
+    """
+    # Start building query
+    query = db.query(Question).filter(Question.exam_type == exam_type)
+
+    # Add domain filter if provided
+    if domain:
+        query = query.filter(Question.domain == domain)
+
+    # Apply randomization and limit
+    questions = query\
+        .order_by(func.random())\
+        .limit(count)\
+        .all()
+
+    return questions
