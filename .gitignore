@@ -43,3 +43,7 @@ backend/.coverage
 # Question Data Files (proprietary content)
 backend/data/COMPTIA/*.csv
 backend/data/COMPTIA/
+backend/questions/
+backend/questions/*.csv
+core.*
+*.deb

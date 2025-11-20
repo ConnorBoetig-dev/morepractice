@@ -62,11 +62,26 @@ form.addEventListener('submit', async (event) => {
         return;
     }
 
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-        showError('Please enter a valid email address');
-        return;
+    // Basic validation - accept email OR username
+    // Email: must contain @ and .
+    // Username: 3-50 chars, alphanumeric, underscore, hyphen
+    if (email.includes('@')) {
+        // Validate as email
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            showError('Please enter a valid email address');
+            return;
+        }
+    } else {
+        // Validate as username
+        if (email.length < 3 || email.length > 50) {
+            showError('Username must be 3-50 characters');
+            return;
+        }
+        if (!/^[a-zA-Z0-9_-]+$/.test(email)) {
+            showError('Username can only contain letters, numbers, underscores, and hyphens');
+            return;
+        }
     }
 
     /*

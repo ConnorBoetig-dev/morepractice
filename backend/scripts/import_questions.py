@@ -8,7 +8,8 @@ from app.db.session import SessionLocal
 from app.models.question import Question
 
 # Path where your exam CSVs live
-CSV_DIR = "/home/connor-boetig/proj/billings/backend/data/COMPTIA"
+# Use relative path from backend/ directory
+CSV_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "questions")
 
 # Map filenames → exam_type saved in DB
 EXAMS = {

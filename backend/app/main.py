@@ -140,6 +140,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:8080",    # Frontend via localhost
         "http://127.0.0.1:8080",    # Frontend via 127.0.0.1 (same machine, different origin)
+        "http://0.0.0.0:8080",      # Frontend via 0.0.0.0 (all interfaces)
     ],
     allow_credentials=True,  # Allow Authorization headers (for JWT tokens)
     allow_methods=["*"],  # Allow all HTTP methods (GET, POST, PUT, DELETE)

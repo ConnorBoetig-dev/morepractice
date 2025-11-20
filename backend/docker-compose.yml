@@ -5,6 +5,8 @@ services:
     image: postgres:15
     container_name: billings_db
     restart: always
+    env_file:
+      - .env
     environment:
       # Load credentials from .env file (with fallback defaults for development)
       # Security: Change these in production! See .env.example
@@ -15,11 +17,15 @@ services:
       - "5432:5432"
     volumes:
       - billings_db_data:/var/lib/postgresql/data
+    networks:
+      - billings_network
 
   pgadmin:
     image: dpage/pgadmin4
     container_name: billings_pgadmin
     restart: always
+    env_file:
+      - .env
     environment:
       # Load pgAdmin credentials from .env file (with fallback defaults)
       # Access pgAdmin at: http://localhost:5050
@@ -29,6 +35,44 @@ services:
       - "5050:80"
     depends_on:
       - db
+    networks:
+      - billings_network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: billings_backend
+    restart: always
+    env_file:
+      - .env
+    environment:
+      # Load all environment variables from .env
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES:-15}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USERNAME: ${SMTP_USERNAME}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      FROM_EMAIL: ${FROM_EMAIL}
+      FROM_NAME: ${FROM_NAME}
+      FRONTEND_URL: ${FRONTEND_URL}
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount code for hot reload (exclude venv and cache)
+      - .:/app
+      - /app/venv
+      - /app/__pycache__
+    depends_on:
+      - db
+    networks:
+      - billings_network
 
 volumes:
   billings_db_data:
+
+networks:
+  billings_network:
+    driver: bridge
