@@ -16,7 +16,7 @@ from app.models.gamification import (
     QuizAttempt,
     UserAnswer
 )
-from app.models.user import UserProfile
+from app.models.user import UserProfile, User
 from app.schemas.quiz import AchievementUnlocked
 
 
@@ -33,9 +33,11 @@ def get_user_stats(db: Session, user_id: int) -> Dict[str, Any]:
             - current_streak: Current study streak
             - current_level: User's current level
             - exam_counts: Dict of quiz counts per exam type
+            - is_verified: Whether user has verified their email
     """
 
-    # Get user profile
+    # Get user and profile
+    user = db.query(User).filter(User.id == user_id).first()
     profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
 
     # Total quizzes completed
@@ -77,7 +79,8 @@ def get_user_stats(db: Session, user_id: int) -> Dict[str, Any]:
         "correct_answers": correct_answers,
         "current_streak": profile.study_streak_current if profile else 0,
         "current_level": profile.level if profile else 1,
-        "exam_counts": exam_counts
+        "exam_counts": exam_counts,
+        "is_verified": user.is_verified if user else False
     }
 
 
@@ -101,8 +104,12 @@ def check_achievement_earned(
     criteria_type = achievement.criteria_type
     criteria_value = achievement.criteria_value
 
+    # Email verification achievement
+    if criteria_type == "email_verified":
+        return stats["is_verified"]
+
     # Quiz completion achievements
-    if criteria_type == "quiz_completed":
+    elif criteria_type == "quiz_completed":
         return stats["total_quizzes"] >= criteria_value
 
     # Perfect quiz achievements (100% score)
@@ -320,7 +327,9 @@ def calculate_achievement_progress(
 
     criteria_type = achievement.criteria_type
 
-    if criteria_type == "quiz_completed":
+    if criteria_type == "email_verified":
+        return 1 if stats["is_verified"] else 0
+    elif criteria_type == "quiz_completed":
         return stats["total_quizzes"]
     elif criteria_type == "perfect_quiz":
         return stats["perfect_quizzes"]

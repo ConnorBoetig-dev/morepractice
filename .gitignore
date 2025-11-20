@@ -29,6 +29,16 @@ Thumbs.db
 
 # Logs
 *.log
+backend/logs/
+
+# Test coverage
+htmlcov/
+.coverage
+backend/htmlcov/
+backend/.coverage
+
+# Backup files
+*.backup
 
 # Question Data Files (proprietary content)
 backend/data/COMPTIA/*.csv

@@ -18,6 +18,23 @@ def seed_achievements(db: Session):
 
     achievements = [
         # ========================================
+        # ACCOUNT SETUP ACHIEVEMENTS
+        # ========================================
+        Achievement(
+            name="Welcome Aboard!",
+            description="Verify your email address",
+            icon="✉️",
+            badge_icon_url="/badges/email_verified.svg",
+            criteria_type="email_verified",
+            criteria_value=1,
+            xp_reward=25,
+            unlocks_avatar_id=None,
+            rarity="common",
+            display_order=0,
+            is_hidden=False
+        ),
+
+        # ========================================
         # GETTING STARTED ACHIEVEMENTS
         # ========================================
         Achievement(
@@ -363,6 +380,7 @@ def seed_achievements(db: Session):
 
     print(f"✅ Successfully seeded {len(achievements)} achievements!")
     print("\nAchievement Categories:")
+    print(f"  - Account Setup: 1 achievement")
     print(f"  - Getting Started: 3 achievements")
     print(f"  - Accuracy: 4 achievements")
     print(f"  - Question Milestones: 4 achievements")

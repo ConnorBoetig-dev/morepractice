@@ -513,8 +513,18 @@ def verify_email(db: Session, token: str) -> dict:
         "email_verification_token": None
     })
 
+    # Step 3: Check for "Welcome Aboard!" achievement
+    from app.services.achievement_service import check_and_award_achievements
+    newly_unlocked = check_and_award_achievements(db, user.id)
+
+    # Build response message
+    message = "Email verified successfully"
+    if newly_unlocked:
+        achievement_names = [a.name for a in newly_unlocked]
+        message += f" - Achievement unlocked: {', '.join(achievement_names)}!"
+
     return {
-        "message": "Email verified successfully",
+        "message": message,
         "detail": "Your account is now verified"
     }
 
