@@ -97,7 +97,7 @@ async def signup_route(
     db: Session = Depends(get_db)
 ):
     """
-    Register a new user
+    Register a new user (Enterprise Flow)
 
     Rate limit: 3 requests per hour per IP (prevents mass account creation)
 
@@ -105,8 +105,13 @@ async def signup_route(
     1. FastAPI validates request body against SignupRequest schema
     2. Rate limiter checks if IP has exceeded signup limit
     3. FastAPI runs get_db() to create database session
-    4. This route calls signup() CONTROLLER (does NOT do logic itself)
-    5. Controller handles the workflow and returns token
+    4. Controller creates user + profile + unlocks default avatars
+    5. Sends verification email (not welcome email - enterprise pattern)
+    6. Returns JWT token (user can access platform but should verify)
+
+    User Flow:
+    - Signup → Verification email sent
+    - User verifies → Welcome email + Achievement unlocked + Avatar unlocked
     """
     # Call controller - controller will orchestrate services
     # Calls: app/controllers/auth_controller.py → signup()
@@ -454,6 +459,7 @@ async def verify_email_route(
     What happens:
     1. Validates token
     2. Controller marks email as verified
-    3. Clears verification token
+    3. Sends welcome email (enterprise flow)
+    4. Unlocks "Welcome Aboard" achievement + Verified Scholar avatar
     """
-    return verify_email(db=db, token=payload.token)
+    return await verify_email(db=db, token=payload.token)

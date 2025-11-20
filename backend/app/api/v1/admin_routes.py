@@ -559,21 +559,21 @@ async def create_achievement(
         "name": "First Steps",
         "description": "Complete your first quiz",
         "icon": "🎯",
-        "criteria_type": "quiz_count",
+        "criteria_type": "quiz_completed",
         "criteria_value": 1,
-        "xp_reward": 50,
-        "is_hidden": false,
-        "rarity": "common"
+        "xp_reward": 100
     }
     ```
 
     Criteria Types:
-    - `quiz_count`: Total quizzes completed
-    - `perfect_quiz`: Perfect score quizzes
-    - `high_score`: Specific score percentage threshold
-    - `streak`: Study streak days
-    - `level`: User level requirement
-    - `exam_specific`: Exam-specific achievements (requires criteria_exam_type)
+    - `email_verified`: User verified their email
+    - `quiz_completed`: Total quizzes completed
+    - `perfect_quiz`: Quizzes with 100% score
+    - `high_score_quiz`: Quizzes with 90%+ score
+    - `correct_answers`: Total correct answers
+    - `level_reached`: User reached specific level
+    - `exam_specific`: N quizzes in any single exam type (requires criteria_exam_type)
+    - `multi_domain`: 10+ quizzes in 2+ different exam types
 
     Returns the created achievement
     """

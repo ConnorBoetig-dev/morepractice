@@ -179,7 +179,7 @@ async def send_verification_email(email: str, verification_token: str, username:
 
     return await send_template_email(
         to=[email],
-        subject="Verify Your Email - Billings Quiz Platform",
+        subject="Welcome - Please Verify Your Email Address",
         template_name="email_verification.html",
         context=context
     )

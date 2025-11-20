@@ -201,30 +201,19 @@ class AchievementCreate(BaseModel):
     icon: str = Field(..., description="Icon identifier/emoji", max_length=50)
     criteria_type: str = Field(
         ...,
-        description="Type of criteria: quiz_count, perfect_quiz, high_score, streak, level, exam_specific"
+        description="Type of criteria: email_verified, quiz_completed, perfect_quiz, high_score_quiz, correct_answers, level_reached, exam_specific, multi_domain"
     )
     criteria_value: int = Field(..., description="Required value to unlock", ge=1)
     criteria_exam_type: Optional[str] = Field(None, description="Specific exam type (for exam_specific achievements)")
     xp_reward: int = Field(default=0, description="Bonus XP for unlocking", ge=0)
-    is_hidden: bool = Field(default=False, description="Hidden until unlocked")
-    rarity: str = Field(default="common", description="Rarity: common, rare, epic, legendary")
 
     @field_validator('criteria_type')
     @classmethod
     def validate_criteria_type(cls, v: str) -> str:
         """Ensure criteria_type is valid"""
-        valid_types = ['quiz_count', 'perfect_quiz', 'high_score', 'streak', 'level', 'exam_specific']
+        valid_types = ['email_verified', 'quiz_completed', 'perfect_quiz', 'high_score_quiz', 'correct_answers', 'level_reached', 'exam_specific', 'multi_domain']
         if v not in valid_types:
             raise ValueError(f'Criteria type must be one of: {", ".join(valid_types)}')
-        return v
-
-    @field_validator('rarity')
-    @classmethod
-    def validate_rarity(cls, v: str) -> str:
-        """Ensure rarity is valid"""
-        valid_rarities = ['common', 'rare', 'epic', 'legendary']
-        if v not in valid_rarities:
-            raise ValueError(f'Rarity must be one of: {", ".join(valid_rarities)}')
         return v
 
 
@@ -237,27 +226,15 @@ class AchievementUpdate(BaseModel):
     criteria_value: Optional[int] = Field(None, ge=1)
     criteria_exam_type: Optional[str] = None
     xp_reward: Optional[int] = Field(None, ge=0)
-    is_hidden: Optional[bool] = None
-    rarity: Optional[str] = None
 
     @field_validator('criteria_type')
     @classmethod
     def validate_criteria_type(cls, v: Optional[str]) -> Optional[str]:
         """Ensure criteria_type is valid if provided"""
         if v is not None:
-            valid_types = ['quiz_count', 'perfect_quiz', 'high_score', 'streak', 'level', 'exam_specific']
+            valid_types = ['email_verified', 'quiz_completed', 'perfect_quiz', 'high_score_quiz', 'correct_answers', 'level_reached', 'exam_specific', 'multi_domain']
             if v not in valid_types:
                 raise ValueError(f'Criteria type must be one of: {", ".join(valid_types)}')
-        return v
-
-    @field_validator('rarity')
-    @classmethod
-    def validate_rarity(cls, v: Optional[str]) -> Optional[str]:
-        """Ensure rarity is valid if provided"""
-        if v is not None:
-            valid_rarities = ['common', 'rare', 'epic', 'legendary']
-            if v not in valid_rarities:
-                raise ValueError(f'Rarity must be one of: {", ".join(valid_rarities)}')
         return v
 
 
@@ -271,8 +248,6 @@ class AchievementResponse(BaseModel):
     criteria_value: int
     criteria_exam_type: Optional[str]
     xp_reward: int
-    is_hidden: bool
-    rarity: str
     created_at: datetime
 
     class Config:

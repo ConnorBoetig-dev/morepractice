@@ -21,8 +21,7 @@ from app.schemas.avatar import (
     AvatarUnlocked,
     SelectAvatarResponse,
     AvatarStats,
-    AvatarInfo,
-    AvatarRarityStats
+    AvatarInfo
 )
 
 router = APIRouter(
@@ -43,7 +42,7 @@ async def get_avatars(request: Request, db: Session = Depends(get_db)):
 
     Returns:
         List of avatars with:
-        - id, name, description, image_url, rarity
+        - id, name, description, image_url
         - is_default: Whether avatar is available to all users
     """
     # Apply rate limit: 30 requests per minute per IP
@@ -77,7 +76,7 @@ async def get_my_avatars(
 
     Returns:
         List of all avatars with:
-        - id, name, description, image_url, rarity
+        - id, name, description, image_url
         - is_default: Whether avatar is available to all users
         - is_unlocked: Whether user has unlocked this avatar
         - is_selected: Whether this is the user's current avatar
@@ -116,7 +115,7 @@ async def get_unlocked_avatars(
 
     Returns:
         List of unlocked avatars with:
-        - id, name, description, image_url, rarity
+        - id, name, description, image_url
         - is_selected: Whether this is the user's current avatar
         - unlocked_at: ISO timestamp when avatar was unlocked
 
@@ -165,8 +164,7 @@ async def select_avatar(
                 "id": 5,
                 "name": "Quiz Champion",
                 "description": "...",
-                "image_url": "/avatars/quiz_champion.png",
-                "rarity": "rare"
+                "image_url": "/avatars/quiz_champion.png"
             }
         }
 
@@ -216,21 +214,14 @@ async def get_avatar_stats(
 
     Returns:
         {
-            "total_avatars": 18,
+            "total_avatars": 15,
             "unlocked_avatars": 5,
-            "completion_percentage": 27.8,
-            "unlocked_by_rarity": {
-                "common": 3,
-                "rare": 1,
-                "epic": 1,
-                "legendary": 0
-            },
+            "completion_percentage": 33.3,
             "selected_avatar": {
                 "id": 1,
                 "name": "Default Student",
                 "description": "...",
-                "image_url": "/avatars/default_student.png",
-                "rarity": "common"
+                "image_url": "/avatars/default_student.png"
             }
         }
     """
@@ -244,7 +235,6 @@ async def get_avatar_stats(
             total_avatars=stats_data["total_avatars"],
             unlocked_avatars=stats_data["unlocked_avatars"],
             completion_percentage=stats_data["completion_percentage"],
-            unlocked_by_rarity=AvatarRarityStats(**stats_data["unlocked_by_rarity"]),
             selected_avatar=AvatarInfo(**stats_data["selected_avatar"]) if stats_data["selected_avatar"] else None
         )
 

@@ -30,9 +30,9 @@ def get_user_stats(db: Session, user_id: int) -> Dict[str, Any]:
             - perfect_quizzes: Quizzes with 100% score
             - high_score_quizzes: Quizzes with 90%+ score
             - correct_answers: Total correct answers
-            - current_streak: Current study streak
             - current_level: User's current level
             - exam_counts: Dict of quiz counts per exam type
+            - domains_with_10_plus: Number of exam types with 10+ quizzes
             - is_verified: Whether user has verified their email
     """
 
@@ -72,14 +72,17 @@ def get_user_stats(db: Session, user_id: int) -> Dict[str, Any]:
 
     exam_counts = {exam_type: count for exam_type, count in exam_counts_query}
 
+    # Count how many exam types have 10+ quizzes (for multi_domain achievement)
+    domains_with_10_plus = sum(1 for count in exam_counts.values() if count >= 10)
+
     return {
         "total_quizzes": total_quizzes,
         "perfect_quizzes": perfect_quizzes,
         "high_score_quizzes": high_score_quizzes,
         "correct_answers": correct_answers,
-        "current_streak": profile.study_streak_current if profile else 0,
         "current_level": profile.level if profile else 1,
         "exam_counts": exam_counts,
+        "domains_with_10_plus": domains_with_10_plus,
         "is_verified": user.is_verified if user else False
     }
 
@@ -92,10 +95,20 @@ def check_achievement_earned(
     """
     Check if user has met the criteria for a specific achievement
 
+    Supported criteria types:
+    - email_verified: User has verified their email
+    - quiz_completed: Total quizzes completed
+    - perfect_quiz: Quizzes with 100% score
+    - high_score_quiz: Quizzes with 90%+ score
+    - correct_answers: Total correct answers over lifetime
+    - level_reached: User has reached specific level
+    - exam_specific: Completed N quizzes in any single exam type
+    - multi_domain: Completed 10+ quizzes in at least N different exam types
+
     Args:
         achievement: Achievement to check
         stats: User statistics from get_user_stats()
-        exam_type: Current exam type (for exam_specific achievements)
+        exam_type: Current exam type (optional, for context)
 
     Returns:
         bool: True if achievement criteria is met
@@ -124,35 +137,31 @@ def check_achievement_earned(
     elif criteria_type == "correct_answers":
         return stats["correct_answers"] >= criteria_value
 
-    # Study streak achievements
-    elif criteria_type == "study_streak":
-        return stats["current_streak"] >= criteria_value
-
     # Level achievements
     elif criteria_type == "level_reached":
         return stats["current_level"] >= criteria_value
 
-    # Exam-specific achievements (e.g., "Complete 50 A+ Core 1 quizzes")
+    # Exam-specific achievements (e.g., "Complete 10 quizzes in one domain")
+    # Check if ANY exam type has reached the criteria
     elif criteria_type == "exam_specific":
-        # For exam-specific achievements, check the count for that specific exam
-        # The exam type is encoded in the achievement name
-        # We'll check if any exam type has reached the criteria
+        # If criteria_exam_type is specified, check that specific exam
+        if achievement.criteria_exam_type:
+            exam_count = stats["exam_counts"].get(achievement.criteria_exam_type, 0)
+            return exam_count >= criteria_value
+        else:
+            # Otherwise, check if ANY exam type has reached the criteria
+            for exam_count in stats["exam_counts"].values():
+                if exam_count >= criteria_value:
+                    return True
+            return False
 
-        # Map achievement names to exam types
-        exam_mapping = {
-            "A+ Core 1": "a_plus_core_1",
-            "A+ Core 2": "a_plus_core_2",
-            "Network+": "network_plus",
-            "Security+": "security_plus"
-        }
-
-        # Find which exam this achievement is for
-        for exam_name, exam_key in exam_mapping.items():
-            if exam_name in achievement.name:
-                exam_count = stats["exam_counts"].get(exam_key, 0)
-                return exam_count >= criteria_value
-
-        return False
+    # Multi-domain achievements (e.g., "Complete 10+ quizzes in 2 different domains")
+    # criteria_value = minimum number of domains required (e.g., 2)
+    elif criteria_type == "multi_domain":
+        # Check if user has completed 10+ quizzes in at least N domains
+        # The criteria_value represents the number of domains, not quiz count
+        # We hardcode 10 as the minimum per domain
+        return stats["domains_with_10_plus"] >= 2  # At least 2 domains with 10+ quizzes
 
     # Unknown criteria type
     return False
@@ -178,11 +187,13 @@ def check_and_award_achievements(
         List[AchievementUnlocked]: List of newly unlocked achievements
     """
 
+    from app.models.gamification import Avatar, UserAvatar
+
     # Get user's current stats
     stats = get_user_stats(db, user_id)
 
-    # Get all achievements
-    all_achievements = db.query(Achievement).order_by(Achievement.display_order).all()
+    # Get all achievements ordered by ID (natural order, no display_order)
+    all_achievements = db.query(Achievement).order_by(Achievement.id).all()
 
     # Get already earned achievement IDs
     earned_achievement_ids = db.query(UserAchievement.achievement_id).filter(
@@ -214,7 +225,7 @@ def check_and_award_achievements(
                 achievement_id=achievement.id,
                 name=achievement.name,
                 description=achievement.description,
-                badge_icon_url=achievement.badge_icon_url,
+                icon=achievement.icon,
                 xp_reward=achievement.xp_reward
             ))
 
@@ -230,9 +241,26 @@ def check_and_award_achievements(
                 profile.level = calculate_level_from_xp(profile.xp)
 
             # Check if this achievement unlocks an avatar
-            if achievement.unlocks_avatar_id:
-                from app.services.avatar_service import unlock_avatar_from_achievement
-                unlock_avatar_from_achievement(db, user_id, achievement.id)
+            # Query for avatars that require this achievement
+            avatar_to_unlock = db.query(Avatar).filter(
+                Avatar.required_achievement_id == achievement.id
+            ).first()
+
+            if avatar_to_unlock:
+                # Check if user already has this avatar
+                existing_user_avatar = db.query(UserAvatar).filter(
+                    UserAvatar.user_id == user_id,
+                    UserAvatar.avatar_id == avatar_to_unlock.id
+                ).first()
+
+                if not existing_user_avatar:
+                    # Unlock the avatar
+                    user_avatar = UserAvatar(
+                        user_id=user_id,
+                        avatar_id=avatar_to_unlock.id,
+                        unlocked_at=datetime.utcnow()
+                    )
+                    db.add(user_avatar)
 
     # Commit all achievement awards
     if newly_unlocked:
@@ -243,18 +271,18 @@ def check_and_award_achievements(
 
 def get_all_achievements(db: Session, user_id: int = None) -> List[Dict[str, Any]]:
     """
-    Get all achievements, optionally filtered for a specific user
+    Get all achievements, optionally with user progress
 
     Args:
         db: Database session
-        user_id: Optional user ID to include earned status
+        user_id: Optional user ID to include earned status and progress
 
     Returns:
-        List of achievements with earned status if user_id provided
+        List of achievements with earned status and progress if user_id provided
     """
 
-    # Get all achievements (including hidden ones if earned)
-    achievements = db.query(Achievement).order_by(Achievement.display_order).all()
+    # Get all achievements ordered by ID (natural order)
+    achievements = db.query(Achievement).order_by(Achievement.id).all()
 
     result = []
 
@@ -271,10 +299,6 @@ def get_all_achievements(db: Session, user_id: int = None) -> List[Dict[str, Any
         for achievement in achievements:
             is_earned = achievement.id in earned_ids
 
-            # Skip hidden achievements that haven't been earned
-            if achievement.is_hidden and not is_earned:
-                continue
-
             # Calculate progress toward achievement
             progress = calculate_achievement_progress(achievement, stats)
 
@@ -282,30 +306,27 @@ def get_all_achievements(db: Session, user_id: int = None) -> List[Dict[str, Any
                 "id": achievement.id,
                 "name": achievement.name,
                 "description": achievement.description,
-                "badge_icon_url": achievement.badge_icon_url,
+                "icon": achievement.icon,
                 "criteria_type": achievement.criteria_type,
                 "criteria_value": achievement.criteria_value,
                 "xp_reward": achievement.xp_reward,
                 "is_earned": is_earned,
-                "is_hidden": achievement.is_hidden,
                 "progress": progress,
                 "progress_percentage": min(100.0, (progress / achievement.criteria_value * 100))
                                       if achievement.criteria_value > 0 else 100.0
             })
     else:
-        # No user context - return all non-hidden achievements
+        # No user context - return all achievements without progress
         for achievement in achievements:
-            if not achievement.is_hidden:
-                result.append({
-                    "id": achievement.id,
-                    "name": achievement.name,
-                    "description": achievement.description,
-                    "badge_icon_url": achievement.badge_icon_url,
-                    "criteria_type": achievement.criteria_type,
-                    "criteria_value": achievement.criteria_value,
-                    "xp_reward": achievement.xp_reward,
-                    "is_hidden": False
-                })
+            result.append({
+                "id": achievement.id,
+                "name": achievement.name,
+                "description": achievement.description,
+                "icon": achievement.icon,
+                "criteria_type": achievement.criteria_type,
+                "criteria_value": achievement.criteria_value,
+                "xp_reward": achievement.xp_reward,
+            })
 
     return result
 
@@ -337,24 +358,20 @@ def calculate_achievement_progress(
         return stats["high_score_quizzes"]
     elif criteria_type == "correct_answers":
         return stats["correct_answers"]
-    elif criteria_type == "study_streak":
-        return stats["current_streak"]
     elif criteria_type == "level_reached":
         return stats["current_level"]
     elif criteria_type == "exam_specific":
-        # Find the relevant exam type
-        exam_mapping = {
-            "A+ Core 1": "a_plus_core_1",
-            "A+ Core 2": "a_plus_core_2",
-            "Network+": "network_plus",
-            "Security+": "security_plus"
-        }
-
-        for exam_name, exam_key in exam_mapping.items():
-            if exam_name in achievement.name:
-                return stats["exam_counts"].get(exam_key, 0)
-
-        return 0
+        # If specific exam type is set, return count for that exam
+        if achievement.criteria_exam_type:
+            return stats["exam_counts"].get(achievement.criteria_exam_type, 0)
+        else:
+            # Return the highest count among all exam types
+            if stats["exam_counts"]:
+                return max(stats["exam_counts"].values())
+            return 0
+    elif criteria_type == "multi_domain":
+        # Return number of domains with 10+ quizzes
+        return stats["domains_with_10_plus"]
 
     return 0
 
@@ -387,7 +404,7 @@ def get_user_achievements(db: Session, user_id: int) -> List[Dict[str, Any]]:
             "id": achievement.id,
             "name": achievement.name,
             "description": achievement.description,
-            "badge_icon_url": achievement.badge_icon_url,
+            "icon": achievement.icon,
             "xp_reward": achievement.xp_reward,
             "earned_at": earned_at.isoformat() if earned_at else None
         }

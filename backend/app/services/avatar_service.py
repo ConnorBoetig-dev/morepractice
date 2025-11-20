@@ -17,14 +17,15 @@ def unlock_default_avatars(db: Session, user_id: int):
     """
     Unlock all default avatars for a new user
 
+    Default avatars are those with required_achievement_id = NULL.
     This should be called when a user first signs up.
 
     Args:
         db: Database session
         user_id: User ID to unlock avatars for
     """
-    # Get all default avatars
-    default_avatars = db.query(Avatar).filter(Avatar.is_default == True).all()
+    # Get all default avatars (those with no achievement requirement)
+    default_avatars = db.query(Avatar).filter(Avatar.required_achievement_id == None).all()
 
     # Check which ones user already has
     existing_avatar_ids = db.query(UserAvatar.avatar_id).filter(
@@ -101,7 +102,7 @@ def get_all_avatars(db: Session, user_id: int = None) -> List[Dict[str, Any]]:
     Returns:
         List of avatars with unlock status and requirements
     """
-    avatars = db.query(Avatar).order_by(Avatar.display_order).all()
+    avatars = db.query(Avatar).order_by(Avatar.id).all()
 
     result = []
 
@@ -134,8 +135,7 @@ def get_all_avatars(db: Session, user_id: int = None) -> List[Dict[str, Any]]:
                 "name": avatar.name,
                 "description": avatar.description,
                 "image_url": avatar.image_url,
-                "is_default": avatar.is_default,
-                "rarity": avatar.rarity,
+                "is_default": avatar.required_achievement_id is None,
                 "is_unlocked": is_unlocked,
                 "is_selected": avatar.id == selected_avatar_id,
                 "unlocked_at": unlocked_at.isoformat() if unlocked_at else None,
@@ -150,8 +150,7 @@ def get_all_avatars(db: Session, user_id: int = None) -> List[Dict[str, Any]]:
                 "name": avatar.name,
                 "description": avatar.description,
                 "image_url": avatar.image_url,
-                "is_default": avatar.is_default,
-                "rarity": avatar.rarity
+                "is_default": avatar.required_achievement_id is None
             })
 
     return result
@@ -189,7 +188,6 @@ def get_user_unlocked_avatars(db: Session, user_id: int) -> List[Dict[str, Any]]
             "name": avatar.name,
             "description": avatar.description,
             "image_url": avatar.image_url,
-            "rarity": avatar.rarity,
             "is_selected": avatar.id == selected_avatar_id,
             "unlocked_at": unlocked_at.isoformat() if unlocked_at else None
         }
@@ -243,8 +241,7 @@ def select_avatar(db: Session, user_id: int, avatar_id: int) -> Dict[str, Any]:
             "id": avatar.id,
             "name": avatar.name,
             "description": avatar.description,
-            "image_url": avatar.image_url,
-            "rarity": avatar.rarity
+            "image_url": avatar.image_url
         }
     }
 
@@ -258,7 +255,7 @@ def get_avatar_stats(db: Session, user_id: int) -> Dict[str, Any]:
         user_id: User ID
 
     Returns:
-        dict: Avatar statistics including total, unlocked, and by rarity
+        dict: Avatar statistics including total, unlocked, and completion percentage
     """
     # Total avatars in game
     total_avatars = db.query(Avatar).count()
@@ -267,26 +264,6 @@ def get_avatar_stats(db: Session, user_id: int) -> Dict[str, Any]:
     unlocked_count = db.query(UserAvatar).filter(
         UserAvatar.user_id == user_id
     ).count()
-
-    # Get unlocked avatars with rarity info
-    user_avatars = db.query(Avatar).join(
-        UserAvatar,
-        Avatar.id == UserAvatar.avatar_id
-    ).filter(
-        UserAvatar.user_id == user_id
-    ).all()
-
-    # Count by rarity
-    rarity_counts = {
-        "common": 0,
-        "rare": 0,
-        "epic": 0,
-        "legendary": 0
-    }
-
-    for avatar in user_avatars:
-        if avatar.rarity in rarity_counts:
-            rarity_counts[avatar.rarity] += 1
 
     # Calculate completion percentage
     completion_percentage = (unlocked_count / total_avatars * 100) if total_avatars > 0 else 0
@@ -302,14 +279,12 @@ def get_avatar_stats(db: Session, user_id: int) -> Dict[str, Any]:
             selected_avatar = {
                 "id": selected_avatar_obj.id,
                 "name": selected_avatar_obj.name,
-                "image_url": selected_avatar_obj.image_url,
-                "rarity": selected_avatar_obj.rarity
+                "image_url": selected_avatar_obj.image_url
             }
 
     return {
         "total_avatars": total_avatars,
         "unlocked_avatars": unlocked_count,
         "completion_percentage": round(completion_percentage, 1),
-        "unlocked_by_rarity": rarity_counts,
         "selected_avatar": selected_avatar
     }

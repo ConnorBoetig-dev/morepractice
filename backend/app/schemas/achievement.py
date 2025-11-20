@@ -19,11 +19,10 @@ class AchievementBase(BaseModel):
     id: int
     name: str
     description: str
-    badge_icon_url: str
+    icon: str
     criteria_type: str
     criteria_value: int
     xp_reward: int
-    is_hidden: bool
 
     class Config:
         from_attributes = True
@@ -74,7 +73,7 @@ class AchievementEarned(BaseModel):
     id: int
     name: str
     description: str
-    badge_icon_url: str
+    icon: str
     xp_reward: int
     earned_at: str = Field(
         description="ISO timestamp when achievement was unlocked"
@@ -92,7 +91,7 @@ class AchievementUnlocked(BaseModel):
     achievement_id: int
     name: str
     description: str
-    badge_icon_url: str
+    icon: str
     xp_reward: int
 
     class Config:

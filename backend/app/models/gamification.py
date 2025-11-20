@@ -152,21 +152,16 @@ class Achievement(Base):
     name = Column(String, nullable=False, unique=True)
     description = Column(Text, nullable=False)
     icon = Column(String, nullable=False, default="🏆")  # Icon/emoji for achievement
-    badge_icon_url = Column(String, nullable=True)  # URL to badge image (deprecated, use icon)
 
     # Unlock Criteria (stored as metadata, logic in achievement_service)
-    criteria_type = Column(String, nullable=False, index=True)  # e.g., "quiz_count", "perfect_quiz", "high_score", "streak", "level", "exam_specific"
-    criteria_value = Column(Integer, nullable=False)  # e.g., 100 questions, 7 days, 90%
-    criteria_exam_type = Column(String, nullable=True)  # For exam-specific achievements (security, network, a1101, a1102)
+    criteria_type = Column(String, nullable=False, index=True)  # e.g., "email_verified", "quiz_completed", "perfect_quiz", "high_score_quiz", "correct_answers", "exam_specific", "multi_domain", "level_reached"
+    criteria_value = Column(Integer, nullable=False)  # e.g., 100 questions, 10 quizzes, etc.
+    criteria_exam_type = Column(String, nullable=True)  # For exam-specific achievements (security_plus, network_plus, a_plus_core_1, a_plus_core_2)
 
     # Rewards
     xp_reward = Column(Integer, nullable=False, default=0)
-    unlocks_avatar_id = Column(Integer, ForeignKey("avatars.id", ondelete="SET NULL"), nullable=True)
 
     # Metadata
-    rarity = Column(String, nullable=False, default="common")  # common, rare, epic, legendary
-    display_order = Column(Integer, nullable=False, default=0)  # For sorting in UI
-    is_hidden = Column(Boolean, nullable=False, default=False)  # Secret achievements
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     # Relationships
@@ -235,19 +230,19 @@ class Avatar(Base):
     image_url = Column(String, nullable=False)  # URL to avatar image
 
     # Unlock Requirements
-    is_default = Column(Boolean, nullable=False, default=False)  # Available to all users
+    # If required_achievement_id is NULL, avatar is default (unlocked on signup)
+    # Otherwise, avatar unlocks when the linked achievement is earned
     required_achievement_id = Column(Integer, ForeignKey("achievements.id", ondelete="SET NULL"), nullable=True)
 
     # Metadata
-    rarity = Column(String, nullable=True)  # e.g., "common", "rare", "legendary"
-    display_order = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     # Relationships
     user_avatars = relationship("UserAvatar", back_populates="avatar", lazy="select")
 
     def __repr__(self):
-        return f"<Avatar(id={self.id}, name={self.name}, default={self.is_default})>"
+        is_default = self.required_achievement_id is None
+        return f"<Avatar(id={self.id}, name={self.name}, default={is_default})>"
 
 
 class UserAvatar(Base):

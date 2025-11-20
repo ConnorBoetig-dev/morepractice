@@ -34,9 +34,6 @@ class AvatarBase(BaseModel):
     name: str
     description: str
     image_url: str
-    rarity: str = Field(
-        description="Avatar rarity: common, rare, epic, or legendary"
-    )
 
     class Config:
         from_attributes = True
@@ -95,7 +92,6 @@ class AvatarUnlocked(BaseModel):
     name: str
     description: str
     image_url: str
-    rarity: str
     is_selected: bool = Field(
         description="Whether this is the user's currently selected avatar"
     )
@@ -119,7 +115,6 @@ class AvatarInfo(BaseModel):
     name: str
     description: str
     image_url: str
-    rarity: str
 
     class Config:
         from_attributes = True
@@ -147,19 +142,6 @@ class SelectAvatarResponse(BaseModel):
 # AVATAR STATS RESPONSE
 # ========================================
 
-class AvatarRarityStats(BaseModel):
-    """
-    Count of unlocked avatars by rarity
-    """
-    common: int = Field(ge=0)
-    rare: int = Field(ge=0)
-    epic: int = Field(ge=0)
-    legendary: int = Field(ge=0)
-
-    class Config:
-        from_attributes = True
-
-
 class AvatarStats(BaseModel):
     """
     User's avatar collection statistics
@@ -176,9 +158,6 @@ class AvatarStats(BaseModel):
         description="Percentage of avatars unlocked (0-100)",
         ge=0,
         le=100
-    )
-    unlocked_by_rarity: AvatarRarityStats = Field(
-        description="Count of unlocked avatars by rarity tier"
     )
     selected_avatar: Optional[AvatarInfo] = Field(
         default=None,

@@ -153,12 +153,21 @@ async def signup(
     from app.services.avatar_service import unlock_default_avatars
     unlock_default_avatars(db, user.id)
 
-    # Step 3.6: Send welcome email (non-blocking, fire and forget)
+    # Step 3.6: Generate email verification token
+    verification_token, _ = generate_verification_token_with_expiration()
+
+    # Step 3.7: Save verification token to user
+    from app.services.auth_service import update_user
+    update_user(db, user.id, {
+        "email_verification_token": verification_token
+    })
+
+    # Step 3.8: Send verification email (enterprise flow: verify FIRST, then welcome)
     try:
-        await send_welcome_email(user.email, user.username)
+        await send_verification_email(user.email, verification_token, user.username)
     except Exception as e:
         # Log error but don't block signup
-        print(f"Failed to send welcome email: {str(e)}")
+        print(f"Failed to send verification email: {str(e)}")
 
     # Step 4: Generate JWT access token and refresh token
     # Call UTILITY (no database involved)
@@ -478,7 +487,7 @@ async def send_email_verification(db: Session, email: str) -> dict:
 
 # EMAIL VERIFICATION CONFIRM CONTROLLER
 # Called by: app/api/v1/auth_routes.py → verify_email_route()
-def verify_email(db: Session, token: str) -> dict:
+async def verify_email(db: Session, token: str) -> dict:
     """
     Orchestrates email verification confirmation workflow
 
@@ -516,6 +525,13 @@ def verify_email(db: Session, token: str) -> dict:
     # Step 3: Check for "Welcome Aboard!" achievement
     from app.services.achievement_service import check_and_award_achievements
     newly_unlocked = check_and_award_achievements(db, user.id)
+
+    # Step 4: Send welcome email now that they're verified (enterprise flow)
+    try:
+        await send_welcome_email(user.email, user.username)
+    except Exception as e:
+        # Log error but don't block verification
+        print(f"Failed to send welcome email: {str(e)}")
 
     # Build response message
     message = "Email verified successfully"

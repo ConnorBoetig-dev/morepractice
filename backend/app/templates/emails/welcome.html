@@ -12,20 +12,28 @@
                 <table role="presentation" style="width: 600px; border-collapse: collapse; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                     <!-- Header -->
                     <tr>
-                        <td style="padding: 40px 40px 20px 40px; text-align: center; background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); border-radius: 8px 8px 0 0;">
-                            <h1 style="margin: 0; color: #ffffff; font-size: 32px;">🎉 Welcome to Billings!</h1>
+                        <td style="padding: 40px 40px 20px 40px; text-align: center; background: linear-gradient(135deg, #28a745 0%, #34d058 100%); border-radius: 8px 8px 0 0;">
+                            <h1 style="margin: 0; color: #ffffff; font-size: 32px;">✅ You're All Set!</h1>
                         </td>
                     </tr>
 
                     <!-- Content -->
                     <tr>
                         <td style="padding: 40px;">
+                            <!-- Achievement Badge -->
+                            <div style="text-align: center; margin: 0 0 30px 0; padding: 20px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 8px;">
+                                <p style="margin: 0 0 10px 0; font-size: 48px;">✉️</p>
+                                <p style="margin: 0 0 5px 0; font-size: 20px; font-weight: bold; color: #28a745;">Achievement Unlocked!</p>
+                                <p style="margin: 0 0 5px 0; font-size: 18px; color: #333333;"><strong>Welcome Aboard</strong></p>
+                                <p style="margin: 0; font-size: 14px; color: #666666;">+50 XP • Verified Scholar Avatar Unlocked</p>
+                            </div>
+
                             <p style="margin: 0 0 20px 0; font-size: 18px; line-height: 26px; color: #333333;">
                                 Hi <strong>{{ username }}</strong>,
                             </p>
 
                             <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 24px; color: #333333;">
-                                Welcome to Billings Quiz Platform! We're excited to help you master CompTIA certifications through practice and gamification.
+                                Your email is now verified! You've unlocked your first achievement and you're ready to start mastering CompTIA certifications.
                             </p>
 
                             <!-- Start Button -->
@@ -96,10 +104,13 @@
                             <!-- CTA -->
                             <div style="margin: 30px 0; padding: 20px; background-color: #f8f9fa; border-radius: 4px; text-align: center;">
                                 <p style="margin: 0 0 16px 0; font-size: 16px; font-weight: bold; color: #333333;">
-                                    Ready to start learning?
+                                    Let's get started!
                                 </p>
+                                <a href="{{ quiz_link }}" style="display: inline-block; padding: 12px 24px; background-color: #1e3c72; color: #ffffff; text-decoration: none; border-radius: 4px; font-size: 14px; margin-right: 10px;">
+                                    Take Your First Quiz
+                                </a>
                                 <a href="{{ dashboard_link }}" style="display: inline-block; padding: 12px 24px; background-color: #28a745; color: #ffffff; text-decoration: none; border-radius: 4px; font-size: 14px;">
-                                    Go to Dashboard
+                                    View Dashboard
                                 </a>
                             </div>
 
