@@ -111,7 +111,7 @@ async def submit_quiz(
                 quiz_count = db.query(QuizAttempt).filter(QuizAttempt.user_id == current_user_id).count()
 
                 # Get total achievements unlocked
-                from app.models.user import UserAchievement
+                from app.models.gamification import UserAchievement
                 total_achievements = db.query(UserAchievement).filter(UserAchievement.user_id == current_user_id).count()
 
                 # Send email for each achievement unlocked
@@ -126,7 +126,7 @@ async def submit_quiz(
                             achievement_name=achievement.name,
                             achievement_description=achievement.description,
                             achievement_icon=achievement.icon,
-                            achievement_rarity=achievement.rarity,
+                            achievement_rarity="Epic",  # Default rarity since Achievement model doesn't have this field
                             xp_reward=achievement.xp_reward,
                             total_achievements=total_achievements,
                             current_level=response.current_level,

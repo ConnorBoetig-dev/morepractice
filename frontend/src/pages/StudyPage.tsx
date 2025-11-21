@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -62,6 +63,7 @@ interface Achievement {
 
 export function StudyPage() {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const { updateUser } = useAuthStore()
   const [selectedExam, setSelectedExam] = useState<string | null>(null)
   const [questionCount, setQuestionCount] = useState<string>('')
@@ -476,7 +478,16 @@ export function StudyPage() {
     return (
       <>
         <div className="p-6 max-w-2xl mx-auto">
-          <Card className="text-center">
+          <Card className="text-center relative">
+            {/* Close Button */}
+            <button
+              onClick={() => navigate('/app/dashboard')}
+              className="absolute top-4 right-4 p-2 rounded-lg text-neutral-400 hover:text-neutral-600 dark:hover:text-slate-300 hover:bg-neutral-100 dark:hover:bg-slate-700 transition-colors"
+              title="Back to Dashboard"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
             <CardContent className="pt-8 pb-8">
               <div className={`w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center ${
                 passed ? 'bg-success-100' : 'bg-error-100'

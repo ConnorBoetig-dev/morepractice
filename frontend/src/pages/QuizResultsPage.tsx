@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { apiClient } from '@/services/api'
-import { Clock, CheckCircle, XCircle, RotateCcw, Home, Sparkles } from 'lucide-react'
+import { Clock, CheckCircle, XCircle, RotateCcw, Home, Sparkles, X } from 'lucide-react'
 
 interface QuestionReview {
   question_id: number
@@ -72,7 +72,16 @@ export function QuizResultsPage() {
   return (
     <div className="p-6 max-w-3xl mx-auto">
       {/* Score Circle */}
-      <Card className="mb-8 text-center">
+      <Card className="mb-8 text-center relative">
+        {/* Close Button */}
+        <button
+          onClick={() => navigate('/app/dashboard')}
+          className="absolute top-4 right-4 p-2 rounded-lg text-neutral-400 hover:text-neutral-600 dark:hover:text-slate-300 hover:bg-neutral-100 dark:hover:bg-slate-700 transition-colors"
+          title="Back to Dashboard"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
         <CardContent className="py-12">
           <div className="relative w-40 h-40 mx-auto mb-6">
             <svg className="w-full h-full transform -rotate-90">
