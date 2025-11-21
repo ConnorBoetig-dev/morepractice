@@ -116,7 +116,7 @@ Base.metadata.create_all(bind=engine)
 # INITIALIZE FASTAPI APPLICATION
 # ============================================
 app = FastAPI(
-    title="Billings API",
+    title="BoetigSolutions API",
     version="1.0.0",
     description="""
 ## Professional Exam Preparation Platform

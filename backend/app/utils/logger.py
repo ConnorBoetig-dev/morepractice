@@ -103,7 +103,7 @@ class SimpleFormatter(logging.Formatter):
         return message
 
 
-def get_logger(name: str = "billings") -> logging.Logger:
+def get_logger(name: str = "boetigsolutions") -> logging.Logger:
     """
     Get configured logger instance
 

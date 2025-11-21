@@ -3,7 +3,7 @@ version: "3.9"
 services:
   db:
     image: postgres:15
-    container_name: billings_db
+    container_name: boetigsolutions_db
     restart: always
     env_file:
       - .env
@@ -22,7 +22,7 @@ services:
 
   pgadmin:
     image: dpage/pgadmin4
-    container_name: billings_pgadmin
+    container_name: boetigsolutions_pgadmin
     restart: always
     env_file:
       - .env
@@ -42,7 +42,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: billings_backend
+    container_name: boetigsolutions_backend
     restart: always
     env_file:
       - .env

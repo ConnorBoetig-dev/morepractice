@@ -43,8 +43,8 @@ class EmailSettings(BaseSettings):
     SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
 
     # Sender Information
-    FROM_EMAIL: str = os.getenv("FROM_EMAIL", "noreply@billings.com")
-    FROM_NAME: str = os.getenv("FROM_NAME", "Billings Quiz Platform")
+    FROM_EMAIL: str = os.getenv("FROM_EMAIL", "noreply@boetigsolutions.com")
+    FROM_NAME: str = os.getenv("FROM_NAME", "BoetigSolutions")
 
     # Frontend URL (for links in emails)
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:8080")
