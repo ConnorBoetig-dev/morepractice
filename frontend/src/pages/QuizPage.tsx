@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { apiClient } from '@/services/api'
 import { Clock, ChevronLeft, ChevronRight, CheckCircle, X, Bookmark } from 'lucide-react'
+import { AchievementUnlockModal } from '@/components/achievements/AchievementUnlockModal'
+import { useAuthStore } from '@/stores/authStore'
 
 interface QuestionOption {
   text: string
@@ -34,11 +36,33 @@ interface AnswerSubmission {
   is_correct: boolean
 }
 
+interface Achievement {
+  achievement_id: number
+  name: string
+  description: string
+  icon: string
+  xp_reward: number
+}
+
+interface QuizSubmissionResponse {
+  quiz_attempt_id: number
+  score: number
+  total_questions: number
+  score_percentage: number
+  xp_earned: number
+  total_xp: number
+  current_level: number
+  previous_level: number
+  level_up: boolean
+  achievements_unlocked: Achievement[]
+}
+
 export function QuizPage() {
   const { examType } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { updateUser } = useAuthStore()
   const questionCount = parseInt(searchParams.get('count') || '10')
 
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -46,6 +70,9 @@ export function QuizPage() {
   const [flagged, setFlagged] = useState<Set<number>>(new Set())
   const [bookmarked, setBookmarked] = useState<Set<number>>(new Set())
   const [timeElapsed, setTimeElapsed] = useState(0)
+  const [unlockedAchievements, setUnlockedAchievements] = useState<Achievement[]>([])
+  const [showAchievementModal, setShowAchievementModal] = useState(false)
+  const [quizAttemptId, setQuizAttemptId] = useState<number | null>(null)
 
   // Fetch questions
   const { data: questionsData, isLoading } = useQuery({
@@ -81,10 +108,49 @@ export function QuizPage() {
   const submitMutation = useMutation({
     mutationFn: async (data: { exam_type: string; total_questions: number; answers: AnswerSubmission[]; time_taken_seconds: number }) => {
       const response = await apiClient.post('/quiz/submit', data)
-      return response.data
+      return response.data as QuizSubmissionResponse
     },
     onSuccess: (data) => {
-      navigate(`/app/practice/${examType}/results/${data.quiz_attempt_id}`)
+      // Debug logging for achievement troubleshooting
+      console.log('=== QUIZ SUBMISSION RESPONSE ===')
+      console.log('Full response:', data)
+      console.log('Achievements unlocked:', data.achievements_unlocked)
+      console.log('Number of achievements:', data.achievements_unlocked?.length || 0)
+      console.log('XP earned:', data.xp_earned)
+      console.log('Total XP:', data.total_xp)
+      console.log('Current level:', data.current_level)
+      console.log('Level up?:', data.level_up)
+      console.log('================================')
+
+      // Update auth store with new XP and level
+      updateUser({
+        xp: data.total_xp,
+        level: data.current_level
+      })
+
+      // Invalidate queries to refresh data across the app
+      queryClient.invalidateQueries({ queryKey: ['user'] })
+      queryClient.invalidateQueries({ queryKey: ['user-profile'] })  // For sidebar/dashboard XP display
+      queryClient.invalidateQueries({ queryKey: ['achievements-earned'] })
+      queryClient.invalidateQueries({ queryKey: ['achievements'] })  // For achievements page
+      queryClient.invalidateQueries({ queryKey: ['quiz-stats'] })    // For stats on profile
+      queryClient.invalidateQueries({ queryKey: ['leaderboard'] })   // For leaderboard updates
+
+      // Store quiz attempt ID for navigation later
+      setQuizAttemptId(data.quiz_attempt_id)
+
+      // Check for achievements
+      if (data.achievements_unlocked && data.achievements_unlocked.length > 0) {
+        console.log('🎉 ACHIEVEMENTS DETECTED! Setting modal state...')
+        console.log('Achievements to show:', data.achievements_unlocked)
+        setUnlockedAchievements(data.achievements_unlocked)
+        setShowAchievementModal(true)
+        console.log('Modal state set to TRUE')
+      } else {
+        console.log('⚠️ No achievements unlocked, navigating to results...')
+        // No achievements, navigate directly to results
+        navigate(`/app/practice/${examType}/results/${data.quiz_attempt_id}`)
+      }
     },
   })
 
@@ -154,6 +220,13 @@ export function QuizPage() {
   }
 
   const answeredCount = Object.keys(answers).length
+
+  const handleAchievementModalClose = () => {
+    setShowAchievementModal(false)
+    if (quizAttemptId) {
+      navigate(`/app/practice/${examType}/results/${quizAttemptId}`)
+    }
+  }
 
   if (isLoading) {
     return (
@@ -328,6 +401,13 @@ export function QuizPage() {
           </Button>
         )}
       </div>
+
+      {/* Achievement Unlock Modal */}
+      <AchievementUnlockModal
+        open={showAchievementModal}
+        onClose={handleAchievementModalClose}
+        achievements={unlockedAchievements}
+      />
     </div>
   )
 }

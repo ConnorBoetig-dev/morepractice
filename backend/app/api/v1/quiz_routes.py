@@ -107,7 +107,7 @@ async def submit_quiz(
 
             if user and user.email:
                 # Get total quiz count
-                from app.models.quiz import QuizAttempt
+                from app.models.gamification import QuizAttempt
                 quiz_count = db.query(QuizAttempt).filter(QuizAttempt.user_id == current_user_id).count()
 
                 # Get total achievements unlocked

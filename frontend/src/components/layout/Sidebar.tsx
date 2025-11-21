@@ -39,14 +39,25 @@ const navItems = [
 export function Sidebar({ className }: SidebarProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { user, logout } = useAuthStore()
+  const { user, logoutAsync } = useAuthStore()
   const { xp, streak, level } = useUserProfile()
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Show confirmation dialog
+    const confirmed = window.confirm('Are you sure you want to logout?')
+
+    if (!confirmed) {
+      return
+    }
+
+    // Call backend logout API to revoke refresh token
+    await logoutAsync()
+
     // Clear all cached queries (study sessions, user data, etc.)
     queryClient.clear()
-    logout()
-    navigate('/login')
+
+    // Redirect to home page instead of login
+    navigate('/')
   }
 
   return (

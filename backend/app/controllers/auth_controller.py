@@ -688,37 +688,55 @@ def delete_account(
             detail="Incorrect password"
         )
 
-    # Step 4: Log account deletion before deleting
-    create_audit_log(
-        db, user_id, "account_deleted",
-        ip_address=ip_address,
-        details="Account deleted by user request"
-    )
+    # Step 4: Manually delete all related data (hard delete)
+    # IMPORTANT: Delete foreign key references BEFORE deleting user
+    try:
+        from app.models.user import Session as SessionModel, AuditLog, PasswordHistory, UserProfile
+        from app.models.gamification import QuizAttempt, UserAnswer, UserAchievement, UserAvatar
 
-    # Step 5: Manually delete all related data (hard delete)
-    # Delete sessions and audit logs
-    from app.models.user import Session as SessionModel, AuditLog
-    db.query(SessionModel).filter(SessionModel.user_id == user_id).delete()
-    db.query(AuditLog).filter(AuditLog.user_id == user_id).delete()  # Must delete for foreign key
+        # Delete in correct order to avoid foreign key violations
+        # synchronize_session=False tells SQLAlchemy not to update the session cache
 
-    # Delete profile, quiz attempts, achievements, avatars (if they exist)
-    from app.models.user import UserProfile
-    from app.models.gamification import QuizAttempt, UserAnswer, UserAchievement, UserAvatar
+        # 1. Delete user answers (references quiz_attempts)
+        db.query(UserAnswer).filter(UserAnswer.user_id == user_id).delete(synchronize_session=False)
 
-    db.query(UserProfile).filter(UserProfile.user_id == user_id).delete()
-    db.query(UserAnswer).filter(UserAnswer.user_id == user_id).delete()
-    db.query(QuizAttempt).filter(QuizAttempt.user_id == user_id).delete()
-    db.query(UserAchievement).filter(UserAchievement.user_id == user_id).delete()
-    db.query(UserAvatar).filter(UserAvatar.user_id == user_id).delete()
+        # 2. Delete quiz attempts
+        db.query(QuizAttempt).filter(QuizAttempt.user_id == user_id).delete(synchronize_session=False)
 
-    # Finally, delete the user
-    db.delete(user)
-    db.commit()
+        # 3. Delete achievements and avatars
+        db.query(UserAchievement).filter(UserAchievement.user_id == user_id).delete(synchronize_session=False)
+        db.query(UserAvatar).filter(UserAvatar.user_id == user_id).delete(synchronize_session=False)
 
-    return {
-        "message": "Account deleted successfully",
-        "detail": "All your data has been permanently removed"
-    }
+        # 4. Delete profile
+        db.query(UserProfile).filter(UserProfile.user_id == user_id).delete(synchronize_session=False)
+
+        # 5. Delete sessions, audit logs, and password history
+        db.query(SessionModel).filter(SessionModel.user_id == user_id).delete(synchronize_session=False)
+        db.query(AuditLog).filter(AuditLog.user_id == user_id).delete(synchronize_session=False)
+        db.query(PasswordHistory).filter(PasswordHistory.user_id == user_id).delete(synchronize_session=False)
+
+        # 6. Finally, delete the user record itself
+        db.delete(user)
+
+        # Commit all deletions at once
+        db.commit()
+
+        # Log successful deletion AFTER commit
+        logger.info(f"Successfully deleted user account: {user.username} (ID: {user_id})")
+
+        return {
+            "message": "Account deleted successfully",
+            "detail": "All your data has been permanently removed"
+        }
+
+    except Exception as e:
+        # Rollback on any error
+        db.rollback()
+        logger.error(f"Failed to delete user account {user_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete account: {str(e)}"
+        )
 
 
 # REFRESH TOKEN CONTROLLER

@@ -10,6 +10,7 @@ import { ProtectedRoute } from './components/auth/ProtectedRoute'
 import { LoginPage } from './pages/LoginPage'
 import { SignupPage } from './pages/SignupPage'
 import { LandingPage } from './pages/LandingPage'
+import { VerifyEmailPage } from './pages/VerifyEmailPage'
 
 // Protected Pages
 import { DashboardPage } from './pages/DashboardPage'
@@ -36,6 +37,7 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
 
           {/* Protected routes with AppShell */}
           <Route

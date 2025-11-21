@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { apiClient } from '@/services/api'
 
 export interface User {
   id: number
@@ -20,6 +21,7 @@ interface AuthState {
   setAuth: (user: User, accessToken: string, refreshToken: string) => void
   updateUser: (user: Partial<User>) => void
   logout: () => void
+  logoutAsync: () => Promise<void>
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -56,6 +58,30 @@ export const useAuthStore = create<AuthState>()(
           refreshToken: null,
           isAuthenticated: false,
         })
+      },
+
+      logoutAsync: async () => {
+        const refreshToken = localStorage.getItem('refresh_token')
+
+        // Call backend logout endpoint to revoke refresh token
+        try {
+          if (refreshToken) {
+            await apiClient.post('/auth/logout', { refresh_token: refreshToken })
+          }
+        } catch (error) {
+          // Even if API call fails, still logout locally
+          console.error('Logout API call failed:', error)
+        } finally {
+          // Always clear local state
+          localStorage.removeItem('access_token')
+          localStorage.removeItem('refresh_token')
+          set({
+            user: null,
+            token: null,
+            refreshToken: null,
+            isAuthenticated: false,
+          })
+        }
       },
     }),
     {

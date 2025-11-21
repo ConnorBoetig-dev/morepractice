@@ -38,7 +38,9 @@ export function LoginPage() {
     try {
       const response = await apiClient.post('/auth/login', data)
       const apiUser = response.data.user
-      // Map API fields to our User interface
+
+      // Backend may return basic user info on login (id, email, username)
+      // We'll use safe defaults for profile fields until they're loaded from /auth/me
       const user = {
         id: apiUser.id,
         email: apiUser.email,
@@ -46,9 +48,10 @@ export function LoginPage() {
         level: apiUser.level || 1,
         xp: apiUser.xp || 0,
         streak: apiUser.study_streak_current || 0,
-        avatar: apiUser.avatar_url,
-        isAdmin: apiUser.is_admin,
+        avatar: apiUser.avatar_url || undefined,
+        isAdmin: apiUser.is_admin || false,
       }
+
       setAuth(user, response.data.access_token, response.data.refresh_token)
       navigate('/app/dashboard')
     } catch (error) {

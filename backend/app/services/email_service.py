@@ -168,7 +168,7 @@ async def send_verification_email(email: str, verification_token: str, username:
         - Expiration time (24 hours)
         - Benefits of verification
     """
-    verification_link = f"{email_settings.FRONTEND_URL}/verify-email.html?token={verification_token}"
+    verification_link = f"{email_settings.FRONTEND_URL}/verify-email?token={verification_token}"
 
     context = {
         "username": username,

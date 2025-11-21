@@ -188,18 +188,23 @@ def check_and_award_achievements(
     """
 
     from app.models.gamification import Avatar, UserAvatar
+    import logging
+    logger = logging.getLogger(__name__)
 
     # Get user's current stats
     stats = get_user_stats(db, user_id)
+    logger.info(f"🔍 Checking achievements for user {user_id}, stats: {stats}")
 
     # Get all achievements ordered by ID (natural order, no display_order)
     all_achievements = db.query(Achievement).order_by(Achievement.id).all()
+    logger.info(f"📋 Total achievements in system: {len(all_achievements)}")
 
     # Get already earned achievement IDs
     earned_achievement_ids = db.query(UserAchievement.achievement_id).filter(
         UserAchievement.user_id == user_id
     ).all()
     earned_ids = {aid[0] for aid in earned_achievement_ids}
+    logger.info(f"✅ User already has {len(earned_ids)} achievements: {earned_ids}")
 
     # Check each achievement
     newly_unlocked: List[AchievementUnlocked] = []
@@ -210,7 +215,10 @@ def check_and_award_achievements(
             continue
 
         # Check if criteria is met
-        if check_achievement_earned(achievement, stats, exam_type):
+        criteria_met = check_achievement_earned(achievement, stats, exam_type)
+        logger.debug(f"  - {achievement.name} (ID {achievement.id}): criteria_met={criteria_met}")
+
+        if criteria_met:
             # Award the achievement
             user_achievement = UserAchievement(
                 user_id=user_id,
@@ -264,7 +272,12 @@ def check_and_award_achievements(
 
     # Commit all achievement awards
     if newly_unlocked:
+        logger.info(f"🎉 User {user_id} unlocked {len(newly_unlocked)} new achievement(s)!")
+        for ach in newly_unlocked:
+            logger.info(f"  - {ach.name} (+{ach.xp_reward} XP)")
         db.commit()
+    else:
+        logger.info(f"⚠️ No new achievements unlocked for user {user_id}")
 
     return newly_unlocked
 
