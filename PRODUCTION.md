@@ -307,12 +307,129 @@ docker logs billings_backend > /var/log/billings/app.log 2>&1
 
 ### Health Check Endpoint
 
-```bash
-# Check if backend is responding
-curl https://yourdomain.com/api/v1/questions/exams
+**Endpoint**: `GET /health`
 
-# Or create dedicated health endpoint
+The application includes a production-ready health check endpoint for monitoring.
+
+**Response (Healthy)**:
+```json
+{
+    "status": "healthy",
+    "timestamp": "2025-11-20T23:12:00.905742",
+    "version": "1.0.0",
+    "database": "connected"
+}
+```
+
+**Response (Unhealthy)**:
+```json
+{
+    "status": "unhealthy",
+    "timestamp": "2025-11-20T23:12:00.905742",
+    "database": "disconnected",
+    "error": "Database connection failed",
+    "version": "1.0.0"
+}
+```
+
+**Status Codes**:
+- `200 OK` - Service is healthy
+- `503 Service Unavailable` - Database or critical dependency failed
+
+**Usage Examples**:
+
+```bash
+# Simple health check
 curl https://yourdomain.com/health
+
+# Check with status code
+curl -f https://yourdomain.com/health && echo "✅ Healthy" || echo "❌ Unhealthy"
+
+# CI/CD deployment verification
+if curl -f https://yourdomain.com/health; then
+    echo "✅ Deployment successful"
+else
+    echo "❌ Deployment failed - rolling back"
+    exit 1
+fi
+```
+
+**Monitoring Services Integration**:
+
+**UptimeRobot** (Free):
+```
+Monitor Type: HTTP(s)
+URL: https://yourdomain.com/health
+Keyword: "healthy"
+Check Interval: 5 minutes
+Alert Contacts: Your email/SMS
+```
+
+**Pingdom**:
+```
+Check Type: HTTP Check
+URL: https://yourdomain.com/health
+Response Time Threshold: 1000ms
+Expected Response: HTTP 200
+Alert When: Status code != 200
+```
+
+**AWS Application Load Balancer**:
+```yaml
+HealthCheck:
+  Path: /health
+  Protocol: HTTP
+  Port: 8000
+  HealthyThresholdCount: 2
+  UnhealthyThresholdCount: 3
+  Timeout: 5
+  Interval: 30
+```
+
+**Nginx Upstream Health Check**:
+```nginx
+upstream backend {
+    server backend1:8000 max_fails=3 fail_timeout=30s;
+    server backend2:8000 max_fails=3 fail_timeout=30s;
+}
+
+location /health {
+    proxy_pass http://backend;
+    access_log off;  # Don't log health checks
+}
+```
+
+**Kubernetes Liveness/Readiness Probes**:
+```yaml
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 2
+```
+
+**Docker Compose Health Check**:
+```yaml
+services:
+  backend:
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 ```
 
 ### Monitoring (Optional but Recommended)

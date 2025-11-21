@@ -1,0 +1,493 @@
+import { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
+import { Badge } from '@/components/ui/Badge'
+import { apiClient } from '@/services/api'
+import { BookOpen, CheckCircle, XCircle, ArrowRight, Target, AlertCircle, X } from 'lucide-react'
+
+const EXAM_DISPLAY_NAMES: Record<string, string> = {
+  'a1101': 'A+ Core 1',
+  'a1102': 'A+ Core 2',
+  'network': 'Network+',
+  'security': 'Security+',
+}
+
+const EXAM_SUBTITLES: Record<string, string> = {
+  'a1101': '220-1101',
+  'a1102': '220-1102',
+  'network': 'N10-008',
+  'security': 'SY0-701',
+}
+
+interface QuestionOption {
+  text: string
+  explanation: string
+}
+
+interface StudyQuestion {
+  question_id: number
+  question_text: string
+  domain?: string
+  correct_answer?: string
+  options: {
+    A: QuestionOption
+    B: QuestionOption
+    C: QuestionOption
+    D: QuestionOption
+  }
+}
+
+interface StudySession {
+  session_id: number
+  total_questions: number
+  current_question: StudyQuestion
+}
+
+export function StudyPage() {
+  const queryClient = useQueryClient()
+  const [selectedExam, setSelectedExam] = useState<string | null>(null)
+  const [questionCount, setQuestionCount] = useState<string>('')
+  const [session, setSession] = useState<StudySession | null>(null)
+  const [questionNumber, setQuestionNumber] = useState(1)
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
+  const [feedback, setFeedback] = useState<{correct: boolean; correctAnswer: string; allOptions?: Record<string, {text: string; explanation: string}>} | null>(null)
+  const [showActiveSessionPrompt, setShowActiveSessionPrompt] = useState(false)
+
+  // Check for active session on mount
+  const { data: activeSession } = useQuery({
+    queryKey: ['active-study-session'],
+    queryFn: async () => {
+      try {
+        const response = await apiClient.get('/study/active')
+        return response.data
+      } catch {
+        return null
+      }
+    },
+  })
+
+  // If there's an active session, auto-resume it
+  useEffect(() => {
+    if (activeSession && activeSession.session_id && !session) {
+      setSession(activeSession)
+      setSelectedExam(activeSession.exam_type || null)
+    }
+  }, [activeSession, session])
+
+  // Warn on browser close/navigate away during active session
+  useEffect(() => {
+    if (!session) return
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [session])
+
+  const { data: examsData, isLoading } = useQuery({
+    queryKey: ['exams'],
+    queryFn: async () => {
+      const response = await apiClient.get('/questions/exams')
+      return response.data
+    },
+  })
+
+  const exams: string[] = examsData?.exams || []
+
+  const isValidCount = () => {
+    const count = parseInt(questionCount)
+    return count >= 1 && count <= 90
+  }
+
+  // Abandon session mutation
+  const abandonMutation = useMutation({
+    mutationFn: async () => {
+      try {
+        const response = await apiClient.delete('/study/abandon')
+        return response.data
+      } catch (error: any) {
+        // 404 means session already completed/doesn't exist - that's fine
+        if (error?.response?.status === 404) {
+          return { already_completed: true }
+        }
+        throw error
+      }
+    },
+    onSuccess: () => {
+      setSession(null)
+      setShowActiveSessionPrompt(false)
+      setQuestionNumber(1)
+      setSelectedAnswer(null)
+      setFeedback(null)
+      queryClient.invalidateQueries({ queryKey: ['active-study-session'] })
+    },
+  })
+
+  // Start session mutation
+  const startMutation = useMutation({
+    mutationFn: async ({ examType, count }: { examType: string; count: number }) => {
+      const response = await apiClient.post('/study/start', { exam_type: examType, count })
+      return response.data
+    },
+    onSuccess: (data) => {
+      setSession(data)
+      setQuestionNumber(1)
+      setFeedback(null)
+      setSelectedAnswer(null)
+      queryClient.invalidateQueries({ queryKey: ['active-study-session'] })
+    },
+    onError: () => {
+      // Show prompt to abandon existing session
+      setShowActiveSessionPrompt(true)
+    },
+  })
+
+  // Submit answer mutation
+  const answerMutation = useMutation({
+    mutationFn: async (answer: string) => {
+      try {
+        const response = await apiClient.post('/study/answer', {
+          session_id: session?.session_id,
+          question_id: session?.current_question?.question_id,
+          user_answer: answer,
+        })
+        return response.data
+      } catch (error: any) {
+        // 400/404 may mean session already completed
+        if (error?.response?.status === 400 || error?.response?.status === 404) {
+          return { session_completed: true, is_correct: false, correct_answer: '', all_options: {} }
+        }
+        throw error
+      }
+    },
+    onSuccess: (data) => {
+      if (data.session_completed && !data.next_question) {
+        // Session was already complete, go back to selection
+        setSession(null)
+        setQuestionNumber(1)
+        setSelectedAnswer(null)
+        setFeedback(null)
+        queryClient.invalidateQueries({ queryKey: ['active-study-session'] })
+        return
+      }
+      setFeedback({
+        correct: data.is_correct,
+        correctAnswer: data.correct_answer,
+        allOptions: data.all_options,
+      })
+    },
+  })
+
+  const handleStartSession = () => {
+    const count = parseInt(questionCount) || 10
+    if (selectedExam && count >= 1 && count <= 90) {
+      startMutation.mutate({ examType: selectedExam, count })
+    }
+  }
+
+  const handleSubmitAnswer = () => {
+    if (selectedAnswer) {
+      answerMutation.mutate(selectedAnswer)
+    }
+  }
+
+  const handleNextQuestion = () => {
+    const data = answerMutation.data
+    if (data?.next_question) {
+      setSession((prev) => prev ? {
+        ...prev,
+        current_question: data.next_question,
+      } : null)
+      setQuestionNumber((n) => n + 1)
+    } else {
+      // Session complete
+      setSession(null)
+      setSelectedExam(null)
+      setQuestionCount('')
+    }
+    setSelectedAnswer(null)
+    setFeedback(null)
+  }
+
+  // Active study session view
+  if (session && session.current_question) {
+    const q = session.current_question
+    const optionKeys = ['A', 'B', 'C', 'D'] as const
+
+    return (
+      <div className="p-6 max-w-3xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <Badge variant="primary">{EXAM_DISPLAY_NAMES[selectedExam!] || selectedExam?.toUpperCase()}</Badge>
+          <div className="flex items-center gap-4">
+            <span className="text-neutral-600">
+              Question {questionNumber} of {session.total_questions}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                if (confirm('Are you sure you want to exit? Your progress will be lost.')) {
+                  abandonMutation.mutate()
+                }
+              }}
+              className="text-neutral-500 hover:text-error-600"
+            >
+              <X className="h-4 w-4 mr-1" />
+              Exit
+            </Button>
+          </div>
+        </div>
+
+        {/* Progress */}
+        <div className="w-full bg-neutral-200 rounded-full h-2 mb-8">
+          <div
+            className="bg-primary-500 h-2 rounded-full transition-all"
+            style={{ width: `${(questionNumber / session.total_questions) * 100}%` }}
+          />
+        </div>
+
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            {q.domain && <Badge variant="neutral" className="mb-4">{q.domain}</Badge>}
+            <h2 className="text-lg font-medium text-neutral-900 mb-6">{q.question_text}</h2>
+
+            <div className="space-y-3">
+              {optionKeys.map((optKey) => {
+                const option = q.options?.[optKey]
+                if (!option) return null
+
+                const isSelected = selectedAnswer === optKey
+                const showResult = feedback !== null
+                const isCorrect = showResult && feedback.correctAnswer === optKey
+                const isWrong = showResult && isSelected && !isCorrect
+
+                const explanation = showResult ? feedback.allOptions?.[optKey]?.explanation : null
+
+                return (
+                  <div key={optKey} className="space-y-2">
+                    <button
+                      onClick={() => !feedback && setSelectedAnswer(optKey)}
+                      disabled={!!feedback}
+                      className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
+                        isCorrect
+                          ? 'border-success-500 bg-success-50'
+                          : isWrong
+                          ? 'border-error-500 bg-error-50'
+                          : isSelected
+                          ? 'border-primary-500 bg-primary-50'
+                          : 'border-neutral-200 hover:border-neutral-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-start">
+                          <span className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 font-medium flex-shrink-0 ${
+                            isCorrect ? 'bg-success-500 text-white' :
+                            isWrong ? 'bg-error-500 text-white' :
+                            isSelected ? 'bg-primary-500 text-white' :
+                            'bg-neutral-200 text-neutral-700'
+                          }`}>
+                            {optKey}
+                          </span>
+                          <span className="text-neutral-900 pt-1">{option.text}</span>
+                        </div>
+                        {isCorrect && <CheckCircle className="h-5 w-5 text-success-500 flex-shrink-0" />}
+                        {isWrong && <XCircle className="h-5 w-5 text-error-500 flex-shrink-0" />}
+                      </div>
+                    </button>
+                    {explanation && (
+                      <p className={`ml-11 text-sm ${isCorrect ? 'text-success-700' : 'text-neutral-600'}`}>
+                        {explanation}
+                      </p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Feedback banner */}
+        {feedback && (
+          <Card className={`mb-6 ${feedback.correct ? 'bg-success-50 border-success-200' : 'bg-error-50 border-error-200'}`}>
+            <CardContent className="py-4">
+              <div className="flex items-center">
+                {feedback.correct ? (
+                  <CheckCircle className="h-6 w-6 text-success-500 mr-2" />
+                ) : (
+                  <XCircle className="h-6 w-6 text-error-500 mr-2" />
+                )}
+                <span className={`font-semibold ${feedback.correct ? 'text-success-700' : 'text-error-700'}`}>
+                  {feedback.correct ? 'Correct!' : `Incorrect - The answer is ${feedback.correctAnswer}`}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Actions */}
+        <div className="flex justify-end">
+          {!feedback ? (
+            <Button onClick={handleSubmitAnswer} disabled={!selectedAnswer || answerMutation.isPending} isLoading={answerMutation.isPending}>
+              Submit Answer
+            </Button>
+          ) : (
+            <Button onClick={handleNextQuestion}>
+              {questionNumber < session.total_questions ? 'Next Question' : 'Finish Session'}
+              <ArrowRight className="h-5 w-5 ml-2" />
+            </Button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // Exam selection screen - same design as PracticePage
+  return (
+    <div className="p-6 max-w-4xl mx-auto">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-neutral-900 mb-2">Study Mode</h1>
+        <p className="text-neutral-600">Learn at your own pace with immediate feedback</p>
+      </div>
+
+      {/* Step 1: Select Exam */}
+      <div className="mb-8">
+        <h2 className="text-lg font-semibold text-neutral-800 mb-4">
+          {selectedExam ? '1. Exam Selected' : '1. Select an Exam'}
+        </h2>
+
+        {isLoading ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-32 bg-neutral-200 rounded-xl animate-pulse" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {exams.map((examType) => (
+              <button
+                key={examType}
+                onClick={() => setSelectedExam(examType)}
+                className={`p-6 rounded-xl border-2 transition-all text-center ${
+                  selectedExam === examType
+                    ? 'border-primary-500 bg-primary-50'
+                    : 'border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50'
+                }`}
+              >
+                <Target className={`h-8 w-8 mx-auto mb-3 ${
+                  selectedExam === examType ? 'text-primary-500' : 'text-neutral-400'
+                }`} />
+                <p className={`font-semibold ${
+                  selectedExam === examType ? 'text-primary-700' : 'text-neutral-900'
+                }`}>
+                  {EXAM_DISPLAY_NAMES[examType] || examType.toUpperCase()}
+                </p>
+                <p className={`text-sm ${
+                  selectedExam === examType ? 'text-primary-600' : 'text-neutral-500'
+                }`}>
+                  {EXAM_SUBTITLES[examType] || 'CompTIA'}
+                </p>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Step 2: Question Count */}
+      {selectedExam && (
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>2. Number of Questions</CardTitle>
+            <CardDescription>Enter a number between 1 and 90</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <input
+                type="number"
+                min={1}
+                max={90}
+                value={questionCount}
+                onChange={(e) => setQuestionCount(e.target.value)}
+                placeholder="10"
+                className="w-32 px-4 py-3 border-2 border-neutral-200 rounded-lg text-center text-lg font-medium focus:border-primary-500 focus:outline-none"
+              />
+              <span className="text-neutral-600">No timer - learn at your pace</span>
+            </div>
+
+            {/* Quick select buttons */}
+            <div className="flex flex-wrap gap-2 mt-4">
+              {[10, 20, 30, 50].map((count) => (
+                <button
+                  key={count}
+                  onClick={() => setQuestionCount(count.toString())}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    parseInt(questionCount) === count
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                  }`}
+                >
+                  {count}
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Start Button */}
+      {selectedExam && (
+        <Button
+          onClick={handleStartSession}
+          disabled={!isValidCount()}
+          isLoading={startMutation.isPending}
+          className="w-full"
+          size="lg"
+        >
+          <BookOpen className="h-5 w-5 mr-2" />
+          Start Study Session
+        </Button>
+      )}
+
+      {/* Active Session Warning */}
+      {showActiveSessionPrompt && (
+        <Card className="mt-4 border-warning-200 bg-warning-50">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-warning-500 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-warning-700 font-medium mb-2">You have an active study session</p>
+                <p className="text-warning-600 text-sm mb-4">
+                  Would you like to resume it or start a new session? Starting a new session will abandon your current progress.
+                </p>
+                <div className="flex gap-3">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      if (activeSession) {
+                        setSession(activeSession)
+                        setShowActiveSessionPrompt(false)
+                      }
+                    }}
+                  >
+                    Resume Session
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => abandonMutation.mutate()}
+                    isLoading={abandonMutation.isPending}
+                    className="text-error-600 hover:text-error-700"
+                  >
+                    Abandon & Start New
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  )
+}

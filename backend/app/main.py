@@ -244,8 +244,10 @@ app.add_exception_handler(Exception, generic_exception_handler)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:8080",    # Frontend via localhost
-        "http://127.0.0.1:8080",    # Frontend via 127.0.0.1 (same machine, different origin)
+        "http://localhost:5173",    # Vite dev server
+        "http://127.0.0.1:5173",    # Vite dev server (127.0.0.1)
+        "http://localhost:8080",    # Legacy frontend port
+        "http://127.0.0.1:8080",    # Legacy frontend port (127.0.0.1)
         "http://0.0.0.0:8080",      # Frontend via 0.0.0.0 (all interfaces)
     ],
     allow_credentials=True,  # Allow Authorization headers (for JWT tokens)
