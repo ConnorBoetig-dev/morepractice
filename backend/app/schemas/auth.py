@@ -225,6 +225,121 @@ class UserResponse(BaseModel):
 
 
 # ============================================
+# PROFILE RESPONSE SCHEMA
+# ============================================
+# Used by: app/api/v1/auth_routes.py → get_me_route()
+# Returns current user info WITH profile data (bio, avatar, stats, etc.)
+from datetime import date
+
+class ProfileResponse(BaseModel):
+    """Response containing user information with full profile data"""
+
+    # USER DATA
+    id: int                        # User's database ID
+    email: EmailStr                # User's email
+    username: str                  # Display name
+    is_active: bool                # Whether account is active
+    is_verified: bool              # Whether email is verified
+    is_admin: bool = False         # Whether user has admin privileges
+    created_at: datetime           # When account was created
+
+    # PROFILE DATA
+    bio: Optional[str] = None                    # User biography/description
+    avatar_url: Optional[str] = None             # Profile picture URL
+    selected_avatar_id: Optional[int] = None     # Currently equipped avatar ID
+
+    # GAMIFICATION: XP & LEVEL
+    xp: int = 0                    # Total experience points
+    level: int = 1                 # Current level
+
+    # GAMIFICATION: STREAKS
+    study_streak_current: int = 0  # Current consecutive study days
+    study_streak_longest: int = 0  # Personal best streak
+
+    # GAMIFICATION: STATS
+    total_exams_taken: int = 0               # Lifetime exam count
+    total_questions_answered: int = 0        # Lifetime question count
+
+    # STREAK TRACKING
+    last_activity_date: Optional[date] = None  # Last activity date
+
+    class Config:
+        from_attributes = True
+
+    # Example response:
+    # {
+    #   "id": 1,
+    #   "email": "user@example.com",
+    #   "username": "john_doe",
+    #   "is_active": true,
+    #   "is_verified": true,
+    #   "is_admin": false,
+    #   "created_at": "2024-01-15T10:30:00",
+    #   "bio": "I love coding!",
+    #   "avatar_url": "https://example.com/avatar.png",
+    #   "selected_avatar_id": 5,
+    #   "xp": 1250,
+    #   "level": 5,
+    #   "study_streak_current": 7,
+    #   "study_streak_longest": 15,
+    #   "total_exams_taken": 25,
+    #   "total_questions_answered": 500,
+    #   "last_activity_date": "2024-01-15"
+    # }
+
+
+# ============================================
+# PUBLIC PROFILE RESPONSE SCHEMA
+# ============================================
+# Used by: GET /api/v1/users/{user_id} - view other users' public profiles
+# Excludes sensitive information (email, is_admin, etc.)
+class PublicProfileResponse(BaseModel):
+    """Response for viewing other users' public profiles - no sensitive data"""
+
+    # Public user data
+    id: int
+    username: str
+    created_at: datetime
+
+    # Profile customization (public)
+    bio: Optional[str] = None
+    avatar_url: Optional[str] = None
+    selected_avatar_id: Optional[int] = None
+
+    # Gamification: XP & Level (public)
+    xp: int = 0
+    level: int = 1
+
+    # Streaks (public)
+    study_streak_current: int = 0
+    study_streak_longest: int = 0
+
+    # Stats (public)
+    total_exams_taken: int = 0
+    total_questions_answered: int = 0
+
+    class Config:
+        from_attributes = True
+
+    # Example response:
+    # {
+    #   "id": 42,
+    #   "username": "johndoe",
+    #   "created_at": "2024-01-15T10:00:00",
+    #   "bio": "I love learning!",
+    #   "avatar_url": "https://example.com/avatar.png",
+    #   "selected_avatar_id": 5,
+    #   "xp": 1250,
+    #   "level": 5,
+    #   "study_streak_current": 7,
+    #   "study_streak_longest": 15,
+    #   "total_exams_taken": 25,
+    #   "total_questions_answered": 500
+    # }
+    # Note: Does NOT include email, is_admin, is_active, is_verified (privacy)
+
+
+# ============================================
 # PASSWORD RESET REQUEST SCHEMA
 # ============================================
 class PasswordResetRequest(BaseModel):
@@ -359,6 +474,7 @@ class UpdateProfileRequest(BaseModel):
     """Request body for PATCH /auth/profile"""
     username: Optional[str] = None      # New username (optional)
     email: Optional[EmailStr] = None    # New email (optional, requires re-verification)
+    bio: Optional[str] = None           # New bio/description (optional)
 
     @field_validator('username')
     @classmethod
@@ -368,10 +484,19 @@ class UpdateProfileRequest(BaseModel):
             return validate_username(v)
         return v
 
+    @field_validator('bio')
+    @classmethod
+    def validate_bio_length(cls, v: Optional[str]) -> Optional[str]:
+        """Validate bio length (max 500 characters)"""
+        if v is not None and len(v) > 500:
+            raise ValueError('Bio must be at most 500 characters long')
+        return v
+
     # Example valid request body:
     # {"username": "new_username"}
     # or {"email": "newemail@example.com"}
-    # or {"username": "new_username", "email": "newemail@example.com"}
+    # or {"bio": "I love coding!"}
+    # or {"username": "new_username", "email": "newemail@example.com", "bio": "I love coding!"}
 
 
 # ============================================

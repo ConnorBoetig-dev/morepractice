@@ -69,6 +69,9 @@ from fastapi.middleware.cors import CORSMiddleware
 # Security Headers Middleware - adds security headers to all responses
 from app.middleware.security_headers import SecurityHeadersMiddleware
 
+# Request ID Middleware - adds unique ID to each request for tracing
+from app.middleware.request_id import RequestIDMiddleware
+
 # Rate limiting - protects API from abuse and DDoS attacks
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -91,12 +94,12 @@ from app.db.session import engine  # ← Database engine (connection to PostgreS
 # User models - defined in: app/models/user.py
 from app.models.user import User, UserProfile, Session, AuditLog, PasswordHistory
 
-# Question model - defined in: app/models/question.py
-from app.models.question import Question
+# Question models - defined in: app/models/question.py
+from app.models.question import Question, QuestionBookmark
 
 # Gamification models - defined in: app/models/gamification.py
 from app.models.gamification import (
-    QuizAttempt, UserAnswer, Achievement, UserAchievement, Avatar, UserAvatar
+    QuizAttempt, StudySession, UserAnswer, Achievement, UserAchievement, Avatar, UserAvatar
 )
 
 
@@ -112,7 +115,92 @@ Base.metadata.create_all(bind=engine)
 # ============================================
 # INITIALIZE FASTAPI APPLICATION
 # ============================================
-app = FastAPI(title="Billings API")  # Creates the FastAPI app instance
+app = FastAPI(
+    title="Billings API",
+    version="1.0.0",
+    description="""
+## Professional Exam Preparation Platform
+
+A comprehensive API for managing exam questions, quizzes, achievements, and user progress tracking.
+
+### Features
+
+* **Authentication & Authorization**: Secure JWT-based auth with email verification, password reset, and session management
+* **Question Management**: Browse questions by exam type and domain with advanced filtering
+* **Quiz System**: Take quizzes, track attempts, and view detailed performance analytics
+* **Bookmarks**: Save questions for later review with personal notes
+* **Gamification**: Earn achievements, unlock avatars, and compete on leaderboards
+* **Admin Panel**: Full CRUD operations for questions, users, and achievements
+
+### API Standards
+
+* All endpoints return consistent JSON responses
+* Error responses include machine-readable error codes
+* Authentication uses Bearer token in Authorization header
+* Pagination uses `page` and `page_size` query parameters
+* All timestamps are in ISO 8601 format (UTC)
+
+### Rate Limits
+
+* Public endpoints: 60 requests/minute per IP
+* Auth endpoints: 3 signup/login per hour per IP
+* Authenticated endpoints: 100 requests/minute per user
+
+### Error Handling
+
+All errors follow a consistent format:
+- Single errors: `{"success": false, "error": {...}, "status_code": 404, ...}`
+- Validation errors: `{"success": false, "errors": [...], "status_code": 422, ...}`
+
+See the error schemas below for full details.
+    """.strip(),
+    contact={
+        "name": "Billings API Support",
+        "email": "support@billingsapi.com",
+    },
+    license_info={
+        "name": "MIT License",
+        "url": "https://opensource.org/licenses/MIT",
+    },
+    openapi_tags=[
+        {
+            "name": "Auth",
+            "description": "Authentication and authorization endpoints (signup, login, password reset, email verification, session management)"
+        },
+        {
+            "name": "Questions",
+            "description": "Browse and retrieve exam questions by type and domain"
+        },
+        {
+            "name": "bookmarks",
+            "description": "Bookmark questions for later review with personal notes"
+        },
+        {
+            "name": "Quiz",
+            "description": "Submit quiz attempts and view quiz history and statistics"
+        },
+        {
+            "name": "Achievements",
+            "description": "View achievements, track earned achievements, and see achievement statistics"
+        },
+        {
+            "name": "Avatars",
+            "description": "View, unlock, and select user avatars"
+        },
+        {
+            "name": "Leaderboard",
+            "description": "View leaderboards by XP, quiz count, accuracy, streak, and exam type"
+        },
+        {
+            "name": "Admin",
+            "description": "Admin-only endpoints for managing questions, users, and achievements (requires admin role)"
+        },
+        {
+            "name": "Health",
+            "description": "Health check endpoints for monitoring application status"
+        },
+    ]
+)  # Creates the FastAPI app instance
 
 # Add rate limiters to app state (makes them accessible to routes)
 # Multiple limiters allow different strategies:
@@ -125,6 +213,24 @@ app.state.user_only_limiter = user_only_limiter
 
 # Register rate limit exceeded handler (returns 429 status)
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# ============================================
+# REGISTER GLOBAL EXCEPTION HANDLERS
+# ============================================
+# Transform all exceptions into consistent error responses
+# Makes API easier to consume from frontend
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from app.middleware.error_handlers import (
+    http_exception_handler,
+    validation_exception_handler,
+    generic_exception_handler
+)
+
+# Order matters! More specific handlers first, generic last
+app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(Exception, generic_exception_handler)
 
 
 # ============================================
@@ -146,6 +252,15 @@ app.add_middleware(
     allow_methods=["*"],  # Allow all HTTP methods (GET, POST, PUT, DELETE)
     allow_headers=["*"],  # Allow all headers (Content-Type, Authorization, etc.)
 )
+
+
+# ============================================
+# CONFIGURE REQUEST ID MIDDLEWARE
+# ============================================
+# Add unique request ID to each request for tracing
+# Makes it easy to correlate logs for a single request
+# Request ID is returned in X-Request-ID response header
+app.add_middleware(RequestIDMiddleware)
 
 
 # ============================================
@@ -182,6 +297,10 @@ from app.api.v1.question_routes import router as question_router
 # Defined in: app/api/v1/quiz_routes.py
 from app.api.v1.quiz_routes import router as quiz_router
 
+# Import router from study mode routes file
+# Defined in: app/api/v1/study_routes.py
+from app.api.v1.study_routes import router as study_router
+
 # Import router from achievement routes file
 # Defined in: app/api/v1/achievement_routes.py
 from app.api.v1.achievement_routes import router as achievement_router
@@ -198,6 +317,14 @@ from app.api.v1.leaderboard_routes import router as leaderboard_router
 # Defined in: app/api/v1/admin_routes.py
 from app.api.v1.admin_routes import router as admin_router
 
+# Import router from bookmark routes file
+# Defined in: app/api/v1/bookmark_routes.py
+from app.api.v1.bookmark_routes import router as bookmark_router
+
+# Import router from health routes file (not versioned - for monitoring)
+# Defined in: app/api/health_routes.py
+from app.api.health_routes import router as health_router
+
 # Register the auth router with /api/v1 prefix
 # This creates routes:
 #   - POST /api/v1/auth/signup
@@ -212,11 +339,19 @@ app.include_router(auth_router, prefix="/api/v1")
 app.include_router(question_router, prefix="/api/v1")
 
 # Register the quiz router with /api/v1 prefix
-# This creates routes:
+# This creates routes (PRACTICE MODE):
 #   - POST /api/v1/quiz/submit
 #   - GET  /api/v1/quiz/history
 #   - GET  /api/v1/quiz/stats
 app.include_router(quiz_router, prefix="/api/v1")
+
+# Register the study mode router with /api/v1 prefix
+# This creates routes (STUDY MODE):
+#   - POST /api/v1/study/start
+#   - POST /api/v1/study/answer
+#   - GET  /api/v1/study/active
+#   - DELETE /api/v1/study/abandon
+app.include_router(study_router, prefix="/api/v1")
 
 # Register the achievement router with /api/v1 prefix
 # This creates routes:
@@ -259,6 +394,22 @@ app.include_router(leaderboard_router, prefix="/api/v1")
 #   - DELETE /api/v1/admin/achievements/{id} - Delete achievement
 app.include_router(admin_router, prefix="/api/v1")
 
+# Register the bookmark router with /api/v1 prefix
+# This creates routes:
+#   - POST   /api/v1/bookmarks/questions/{question_id} - Bookmark a question
+#   - GET    /api/v1/bookmarks - Get user's bookmarks (paginated)
+#   - DELETE /api/v1/bookmarks/questions/{question_id} - Remove bookmark
+#   - PATCH  /api/v1/bookmarks/questions/{question_id} - Update bookmark notes
+#   - GET    /api/v1/bookmarks/questions/{question_id}/check - Check if bookmarked
+app.include_router(bookmark_router, prefix="/api/v1")
+
+# Register the health router (no prefix - not versioned)
+# This creates routes:
+#   - GET /health - Application health check for monitoring
+# Note: Health checks are intentionally NOT versioned (/api/v1)
+# Monitoring tools expect a stable endpoint that never changes
+app.include_router(health_router)
+
 
 # ============================================
 # BACKGROUND TASKS
@@ -270,4 +421,8 @@ from app.tasks import start_background_tasks
 @app.on_event("startup")
 async def startup_event():
     """Initialize background tasks on application startup"""
-    start_background_tasks()
+    # Skip background tasks in test environment
+    if not os.getenv("TESTING", "false").lower() == "true":
+        start_background_tasks()
+    else:
+        print("[TEST MODE] Skipping background task initialization")

@@ -28,7 +28,10 @@ from app.services.auth_service import (
 from app.models.user import User
 
 # Defined in: app/services/profile_service.py
-from app.services.profile_service import create_profile  # ← SERVICE: Inserts profile into database
+from app.services.profile_service import (
+    create_profile,  # ← SERVICE: Inserts profile into database
+    update_profile as update_user_profile,  # ← SERVICE: Updates profile fields (bio, avatar, etc.)
+)
 
 # UTILITY imports - helper functions (no database access)
 # Defined in: app/utils/auth.py
@@ -77,6 +80,12 @@ from datetime import datetime
 
 # For type hints
 from typing import Optional
+
+# Logging utilities
+# Defined in: app/utils/logger.py
+from app.utils.logger import log_auth_event, log_error, get_logger
+
+logger = get_logger(__name__)
 
 
 # SIGNUP CONTROLLER
@@ -239,7 +248,7 @@ def login(
         # Business logic: generic error prevents email/username enumeration attacks
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password.",
+            detail="Invalid credentials.",
         )
 
     # Step 1.5: Check if account is disabled (banned/suspended by admin)
@@ -309,12 +318,21 @@ def login(
     # Step 7: Update last login timestamp and IP
     update_last_login(db, user, ip_address)
 
-    # Step 8: Log successful login
+    # Step 8: Log successful login (database audit log)
     create_audit_log(
         db, user.id, "login",
         ip_address=ip_address,
         user_agent=user_agent,
         details="Successful login"
+    )
+
+    # Log to application logs (for monitoring/alerts)
+    log_auth_event(
+        event="login",
+        user_id=user.id,
+        email=user.email,
+        success=True,
+        ip_address=ip_address
     )
 
     # Return tokens with OAuth 2.0 standard format
@@ -855,12 +873,13 @@ async def update_profile(
     user_id: int,
     username: Optional[str] = None,
     email: Optional[str] = None,
+    bio: Optional[str] = None,
     ip_address: Optional[str] = None
 ) -> dict:
     """
     Orchestrates profile update workflow
 
-    Can update username and/or email
+    Can update username, email, and/or bio
     If email is changed, requires re-verification
     """
 
@@ -873,6 +892,7 @@ async def update_profile(
         )
 
     update_data = {}
+    profile_update_data = {}
 
     # Step 2: Update username if provided
     if username is not None:
@@ -909,7 +929,11 @@ async def update_profile(
         update_data["email_verification_token"] = token
         email_changed = True
 
-    # Step 4: Apply updates
+    # Step 3.5: Update bio if provided
+    if bio is not None:
+        profile_update_data["bio"] = bio
+
+    # Step 4: Apply user updates
     if update_data:
         from app.services.auth_service import update_user
         update_user(db, user_id, update_data)
@@ -928,6 +952,18 @@ async def update_profile(
                 await send_verification_email(email, token, username or user.username)
             except Exception as e:
                 print(f"Failed to send verification email: {str(e)}")
+
+    # Step 7: Apply profile updates (bio, avatar, etc.)
+    if profile_update_data:
+        update_user_profile(db, user_id, profile_update_data)
+
+        # Log bio update
+        details = f"Updated profile: {', '.join(profile_update_data.keys())}"
+        create_audit_log(
+            db, user_id, "profile_update",
+            ip_address=ip_address,
+            details=details
+        )
 
     return {
         "message": "Profile updated successfully",

@@ -130,6 +130,7 @@ def submit_quiz(
         quiz_attempt = QuizAttempt(
             user_id=user_id,
             exam_type=submission.exam_type,
+            mode="practice",  # Practice mode: answer all questions first, get results at end
             total_questions=submission.total_questions,
             correct_answers=correct_answers,
             score_percentage=score_percentage,

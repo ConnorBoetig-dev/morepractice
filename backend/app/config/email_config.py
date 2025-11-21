@@ -21,9 +21,14 @@ Environment Variables Required:
 """
 
 import os
+from pathlib import Path
 from typing import Dict, Any
 from fastapi_mail import ConnectionConfig
 from pydantic_settings import BaseSettings
+
+# Get absolute path to templates directory
+# Works whether running from backend/ or tests/
+TEMPLATE_DIR = Path(__file__).parent.parent / "templates" / "emails"
 
 
 class EmailSettings(BaseSettings):
@@ -70,7 +75,7 @@ email_conf = ConnectionConfig(
     MAIL_SSL_TLS=False,  # Don't use SSL (we use STARTTLS)
     USE_CREDENTIALS=email_settings.USE_CREDENTIALS,
     VALIDATE_CERTS=email_settings.VALIDATE_CERTS,
-    TEMPLATE_FOLDER='app/templates/emails'  # Path to email templates
+    TEMPLATE_FOLDER=str(TEMPLATE_DIR)  # Absolute path to email templates
 )
 
 

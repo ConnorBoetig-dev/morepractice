@@ -1,7 +1,7 @@
 # MODEL LAYER: Question model for CompTIA exam practice
 
 # SQLAlchemy column types
-from sqlalchemy import Column, Integer, String, Text, DateTime, JSON
+from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, ForeignKey
 
 # For timestamps
 from datetime import datetime
@@ -66,3 +66,20 @@ class Question(Base):
     # TIMESTAMPS
     # ============================================
     created_at = Column(DateTime, default=datetime.utcnow)  # When question was imported
+
+
+# QUESTION BOOKMARK MODEL
+# Tracks which questions users have bookmarked for later review
+class QuestionBookmark(Base):
+    """User bookmarks for questions"""
+    __tablename__ = "question_bookmarks"
+
+    # Composite primary key (user_id + question_id)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    question_id = Column(Integer, ForeignKey("questions.id", ondelete="CASCADE"), primary_key=True)
+
+    # Optional notes for the bookmark
+    notes = Column(Text, nullable=True)
+
+    # Timestamp when bookmark was created
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

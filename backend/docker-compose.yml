@@ -58,6 +58,7 @@ services:
       FROM_EMAIL: ${FROM_EMAIL}
       FROM_NAME: ${FROM_NAME}
       FRONTEND_URL: ${FRONTEND_URL}
+      PYTHONPATH: /app
     ports:
       - "8000:8000"
     volumes:

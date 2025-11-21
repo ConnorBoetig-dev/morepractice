@@ -383,6 +383,102 @@ def test_get_current_user_invalid_token(client):
     assert "invalid" in detail_lower or "token" in detail_lower or "credentials" in detail_lower
 
 
+@pytest.mark.api
+@pytest.mark.integration
+def test_get_current_user_returns_profile_response_with_all_fields(client, auth_headers, test_user, test_db):
+    """Test GET /auth/me returns ProfileResponse with bio, avatar, xp, level, streaks, and stats"""
+    # Import UserProfile model to verify profile exists
+    from app.models.user import UserProfile
+
+    # Get or create profile for test user
+    profile = test_db.query(UserProfile).filter(UserProfile.user_id == test_user.id).first()
+    if not profile:
+        profile = UserProfile(user_id=test_user.id)
+        test_db.add(profile)
+        test_db.commit()
+        test_db.refresh(profile)
+
+    # Call GET /auth/me
+    response = client.get("/api/v1/auth/me", headers=auth_headers)
+
+    assert response.status_code == 200
+    data = response.json()
+
+    # Verify user fields
+    assert data["id"] == test_user.id
+    assert data["email"] == test_user.email
+    assert data["username"] == test_user.username
+    assert data["is_active"] == test_user.is_active
+    assert data["is_verified"] == test_user.is_verified
+    assert data["is_admin"] == test_user.is_admin
+    assert "created_at" in data
+
+    # Verify profile fields exist (NEW - ProfileResponse)
+    assert "bio" in data
+    assert "avatar_url" in data
+    assert "selected_avatar_id" in data
+
+    # Verify gamification fields
+    assert "xp" in data
+    assert "level" in data
+    assert data["xp"] == profile.xp
+    assert data["level"] == profile.level
+
+    # Verify streak fields
+    assert "study_streak_current" in data
+    assert "study_streak_longest" in data
+    assert data["study_streak_current"] == profile.study_streak_current
+    assert data["study_streak_longest"] == profile.study_streak_longest
+
+    # Verify stats fields
+    assert "total_exams_taken" in data
+    assert "total_questions_answered" in data
+    assert data["total_exams_taken"] == profile.total_exams_taken
+    assert data["total_questions_answered"] == profile.total_questions_answered
+
+    # Verify last_activity_date field
+    assert "last_activity_date" in data
+
+
+@pytest.mark.api
+@pytest.mark.integration
+def test_get_current_user_profile_fields_default_to_null_or_zero(client, auth_headers, test_user, test_db):
+    """Test ProfileResponse has correct defaults for new users (bio=null, xp=0, level=1)"""
+    from app.models.user import UserProfile
+
+    # Ensure profile exists with defaults
+    profile = test_db.query(UserProfile).filter(UserProfile.user_id == test_user.id).first()
+    if not profile:
+        profile = UserProfile(user_id=test_user.id)
+        test_db.add(profile)
+        test_db.commit()
+
+    response = client.get("/api/v1/auth/me", headers=auth_headers)
+
+    assert response.status_code == 200
+    data = response.json()
+
+    # New users should have null bio
+    assert data["bio"] is None or data["bio"] == ""
+
+    # New users should have null avatar_url
+    assert data["avatar_url"] is None or data["avatar_url"] == ""
+
+    # New users should have 0 XP
+    assert data["xp"] >= 0
+
+    # New users should have level 1 or higher
+    assert data["level"] >= 1
+
+    # New users should have 0 streaks
+    assert data["study_streak_current"] >= 0
+    assert data["study_streak_longest"] >= 0
+
+    # New users should have 0 stats
+    assert data["total_exams_taken"] >= 0
+    assert data["total_questions_answered"] >= 0
+
+
 # ================================================================
 # EMAIL VERIFICATION TESTS
 # ================================================================
@@ -1178,3 +1274,266 @@ def test_update_profile_duplicate_username(client, auth_headers, test_db, test_u
     # Verify username was NOT changed
     test_db.refresh(test_user)
     assert test_user.username == original_username
+
+
+@pytest.mark.api
+@pytest.mark.integration
+def test_update_profile_bio_success(client, auth_headers, test_db, test_user):
+    """Test updating user bio via PATCH /auth/profile"""
+    from app.models.user import UserProfile
+
+    # Ensure profile exists
+    profile = test_db.query(UserProfile).filter(UserProfile.user_id == test_user.id).first()
+    if not profile:
+        profile = UserProfile(user_id=test_user.id)
+        test_db.add(profile)
+        test_db.commit()
+        test_db.refresh(profile)
+
+    # Update bio
+    new_bio = "I love building secure applications with FastAPI!"
+
+    response = client.patch(
+        "/api/v1/auth/profile",
+        json={"bio": new_bio},
+        headers=auth_headers
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "message" in data
+    assert "success" in data["message"].lower() or "updated" in data["message"].lower()
+
+    # Verify bio was updated in database
+    test_db.refresh(profile)
+    assert profile.bio == new_bio
+
+
+@pytest.mark.api
+@pytest.mark.integration
+def test_update_profile_bio_empty_string_allowed(client, auth_headers, test_db, test_user):
+    """Test clearing bio with empty string"""
+    from app.models.user import UserProfile
+
+    # Set initial bio
+    profile = test_db.query(UserProfile).filter(UserProfile.user_id == test_user.id).first()
+    if not profile:
+        profile = UserProfile(user_id=test_user.id, bio="Initial bio")
+        test_db.add(profile)
+    else:
+        profile.bio = "Initial bio"
+    test_db.commit()
+    test_db.refresh(profile)
+
+    # Clear bio with empty string
+    response = client.patch(
+        "/api/v1/auth/profile",
+        json={"bio": ""},
+        headers=auth_headers
+    )
+
+    assert response.status_code == 200
+
+    # Verify bio was cleared
+    test_db.refresh(profile)
+    assert profile.bio == "" or profile.bio is None
+
+
+@pytest.mark.api
+@pytest.mark.integration
+def test_update_profile_bio_too_long_rejected(client, auth_headers, test_db, test_user):
+    """Test bio longer than 500 characters is rejected"""
+    from app.models.user import UserProfile
+
+    # Ensure profile exists
+    profile = test_db.query(UserProfile).filter(UserProfile.user_id == test_user.id).first()
+    if not profile:
+        profile = UserProfile(user_id=test_user.id)
+        test_db.add(profile)
+        test_db.commit()
+
+    original_bio = profile.bio
+
+    # Attempt to set bio longer than 500 characters
+    too_long_bio = "x" * 501
+
+    response = client.patch(
+        "/api/v1/auth/profile",
+        json={"bio": too_long_bio},
+        headers=auth_headers
+    )
+
+    # Should be rejected with 422 Unprocessable Entity (validation error)
+    assert response.status_code == 422
+
+    # Verify bio was NOT changed
+    test_db.refresh(profile)
+    assert profile.bio == original_bio
+
+
+@pytest.mark.api
+@pytest.mark.integration
+def test_update_profile_bio_exactly_500_chars_accepted(client, auth_headers, test_db, test_user):
+    """Test bio with exactly 500 characters is accepted (boundary test)"""
+    from app.models.user import UserProfile
+
+    # Ensure profile exists
+    profile = test_db.query(UserProfile).filter(UserProfile.user_id == test_user.id).first()
+    if not profile:
+        profile = UserProfile(user_id=test_user.id)
+        test_db.add(profile)
+        test_db.commit()
+        test_db.refresh(profile)
+
+    # Set bio to exactly 500 characters
+    exact_bio = "x" * 500
+
+    response = client.patch(
+        "/api/v1/auth/profile",
+        json={"bio": exact_bio},
+        headers=auth_headers
+    )
+
+    assert response.status_code == 200
+
+    # Verify bio was updated
+    test_db.refresh(profile)
+    assert profile.bio == exact_bio
+    assert len(profile.bio) == 500
+
+
+@pytest.mark.api
+@pytest.mark.integration
+def test_update_profile_bio_and_username_together(client, auth_headers, test_db, test_user):
+    """Test updating both bio and username in single request"""
+    from app.models.user import UserProfile
+
+    # Ensure profile exists
+    profile = test_db.query(UserProfile).filter(UserProfile.user_id == test_user.id).first()
+    if not profile:
+        profile = UserProfile(user_id=test_user.id)
+        test_db.add(profile)
+        test_db.commit()
+        test_db.refresh(profile)
+
+    new_username = "updated_user_123"
+    new_bio = "Updated bio content"
+
+    response = client.patch(
+        "/api/v1/auth/profile",
+        json={
+            "username": new_username,
+            "bio": new_bio
+        },
+        headers=auth_headers
+    )
+
+    assert response.status_code == 200
+
+    # Verify both were updated
+    test_db.refresh(test_user)
+    test_db.refresh(profile)
+    assert test_user.username == new_username
+    assert profile.bio == new_bio
+
+
+# ================================================================
+# PUBLIC PROFILE TESTS
+# ================================================================
+
+@pytest.mark.api
+@pytest.mark.integration
+def test_get_public_profile_success(client, test_db, test_user):
+    """Test viewing another user's public profile"""
+    from app.models.user import UserProfile
+
+    # Ensure profile exists with some data
+    profile = test_db.query(UserProfile).filter(UserProfile.user_id == test_user.id).first()
+    if not profile:
+        profile = UserProfile(
+            user_id=test_user.id,
+            bio="Public bio text",
+            xp=1000,
+            level=5,
+            total_exams_taken=20
+        )
+        test_db.add(profile)
+        test_db.commit()
+        test_db.refresh(profile)
+
+    # Get public profile (no auth required)
+    response = client.get(f"/api/v1/auth/users/{test_user.id}")
+
+    assert response.status_code == 200
+    data = response.json()
+
+    # Verify public fields are present
+    assert data["id"] == test_user.id
+    assert data["username"] == test_user.username
+    assert "created_at" in data
+    assert data["bio"] == "Public bio text"
+    assert data["xp"] == 1000
+    assert data["level"] == 5
+    assert data["total_exams_taken"] == 20
+
+    # Verify sensitive fields are NOT present
+    assert "email" not in data
+    assert "is_admin" not in data
+    assert "is_active" not in data
+    assert "is_verified" not in data
+
+
+@pytest.mark.api
+@pytest.mark.integration
+def test_get_public_profile_user_not_found(client, test_db):
+    """Test viewing profile of non-existent user"""
+    response = client.get("/api/v1/auth/users/99999")
+
+    assert response.status_code == 404
+    data = response.json()
+    assert "detail" in data
+    assert "not found" in data["detail"].lower()
+
+
+@pytest.mark.api
+@pytest.mark.integration
+def test_get_public_profile_no_sensitive_data_leak(client, test_db):
+    """Test that email and admin status are never exposed in public profile"""
+    from app.models.user import User, UserProfile
+    from app.utils.auth import hash_password
+
+    # Create user with admin privileges and verified email
+    admin_user = User(
+        email="admin@secret.com",
+        username="adminuser",
+        hashed_password=hash_password("Password123!"),
+        is_active=True,
+        is_verified=True,
+        is_admin=True
+    )
+    test_db.add(admin_user)
+    test_db.commit()
+    test_db.refresh(admin_user)
+
+    # Create profile
+    profile = UserProfile(user_id=admin_user.id)
+    test_db.add(profile)
+    test_db.commit()
+
+    # Get public profile
+    response = client.get(f"/api/v1/auth/users/{admin_user.id}")
+
+    assert response.status_code == 200
+    data = response.json()
+
+    # Verify no sensitive data
+    assert "email" not in data  # Email must not be exposed
+    assert "is_admin" not in data  # Admin status must not be exposed
+    assert "is_active" not in data
+    assert "is_verified" not in data
+    assert "hashed_password" not in data
+
+    # Verify only public data
+    assert data["username"] == "adminuser"
+    assert "xp" in data
+    assert "level" in data

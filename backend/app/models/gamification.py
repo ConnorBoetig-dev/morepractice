@@ -43,6 +43,7 @@ class QuizAttempt(Base):
 
     # Quiz Details
     exam_type = Column(String, nullable=False, index=True)  # security, network, a1101, a1102
+    mode = Column("mode", String, nullable=False, default="practice", index=True, quote=True)  # "study" or "practice" - quoted to avoid PostgreSQL aggregate function conflict
     total_questions = Column(Integer, nullable=False)
     correct_answers = Column(Integer, nullable=False)
     score_percentage = Column(Float, nullable=False)  # Calculated: (correct/total) * 100
@@ -65,7 +66,10 @@ class QuizAttempt(Base):
         Index("idx_quiz_exam_score_date", "exam_type", "score_percentage", "completed_at"),
         # Composite index for user history (filter by user, order by date)
         Index("idx_quiz_user_date", "user_id", "completed_at"),
+        # Composite index for mode-based queries (filter by user and mode)
+        Index("idx_quiz_user_mode", "user_id", "mode"),
         # CHECK constraints for data validation
+        CheckConstraint('"mode" IN (\'study\', \'practice\')', name="check_mode_valid"),
         CheckConstraint("total_questions > 0", name="check_total_questions_positive"),
         CheckConstraint("correct_answers >= 0", name="check_correct_answers_non_negative"),
         CheckConstraint("correct_answers <= total_questions", name="check_correct_not_exceeds_total"),
@@ -76,6 +80,56 @@ class QuizAttempt(Base):
 
     def __repr__(self):
         return f"<QuizAttempt(id={self.id}, user_id={self.user_id}, exam={self.exam_type}, score={self.score_percentage}%)>"
+
+
+class StudySession(Base):
+    """
+    Tracks active study mode sessions (one question at a time with immediate feedback)
+
+    Study mode workflow:
+    1. User starts session → creates StudySession with question IDs
+    2. User answers each question → gets immediate feedback
+    3. User completes all questions → session converted to QuizAttempt
+
+    Used for:
+    - Tracking in-progress study sessions
+    - Storing question order
+    - Preventing duplicate sessions
+    - Cleanup of abandoned sessions
+    """
+    __tablename__ = "study_sessions"
+
+    # Primary Key
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+
+    # Foreign Keys
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    # Session Details
+    exam_type = Column(String, nullable=False)
+    question_ids = Column(Text, nullable=False)  # Comma-separated list of question IDs
+    current_index = Column(Integer, nullable=False, default=0)  # Which question they're on
+
+    # Status
+    is_completed = Column(Boolean, nullable=False, default=False)
+    completed_quiz_attempt_id = Column(Integer, ForeignKey("quiz_attempts.id", ondelete="SET NULL"), nullable=True)
+
+    # Timestamps
+    started_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    completed_at = Column(DateTime, nullable=True)
+
+    # Indexes for queries
+    __table_args__ = (
+        # Find active sessions for a user
+        Index("idx_study_user_active", "user_id", "is_completed"),
+        # Cleanup old incomplete sessions
+        Index("idx_study_started", "started_at"),
+        # CHECK constraints
+        CheckConstraint("current_index >= 0", name="check_study_current_index_non_negative"),
+    )
+
+    def __repr__(self):
+        return f"<StudySession(id={self.id}, user_id={self.user_id}, exam={self.exam_type}, completed={self.is_completed})>"
 
 
 class UserAnswer(Base):

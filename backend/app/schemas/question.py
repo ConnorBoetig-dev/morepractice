@@ -176,3 +176,62 @@ class DomainsResponse(BaseModel):
     """
     exam_type: str = Field(..., description="The exam type these domains belong to")
     domains: List[DomainResponse] = Field(..., description="List of domains with question counts")
+
+
+# ================================================================
+# BOOKMARK SCHEMAS
+# ================================================================
+
+class BookmarkRequest(BaseModel):
+    """
+    Request to create or update a bookmark.
+
+    Example Request:
+        {
+            "notes": "Review this question about encryption at rest"
+        }
+    """
+    notes: str | None = Field(None, description="Optional notes for the bookmark", max_length=1000)
+
+
+class BookmarkResponse(BaseModel):
+    """
+    Bookmark with associated question details.
+
+    Example Response:
+        {
+            "question_id": 123,
+            "notes": "Review this question",
+            "created_at": "2024-01-15T10:30:00",
+            "question": {
+                "id": 123,
+                "question_text": "Which security control...",
+                ...
+            }
+        }
+    """
+    question_id: int = Field(..., description="ID of the bookmarked question")
+    notes: str | None = Field(None, description="User's notes for this bookmark")
+    created_at: str = Field(..., description="ISO 8601 timestamp when bookmark was created")
+    question: QuestionResponse = Field(..., description="Full question details")
+
+    class Config:
+        from_attributes = True
+
+
+class BookmarksListResponse(BaseModel):
+    """
+    Paginated list of bookmarks.
+
+    Example Response:
+        {
+            "total": 15,
+            "page": 1,
+            "page_size": 10,
+            "bookmarks": [...]
+        }
+    """
+    total: int = Field(..., description="Total number of bookmarks")
+    page: int = Field(..., description="Current page number")
+    page_size: int = Field(..., description="Number of bookmarks per page")
+    bookmarks: List[BookmarkResponse] = Field(..., description="List of bookmarks")

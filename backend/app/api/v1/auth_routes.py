@@ -41,6 +41,8 @@ from app.schemas.auth import (
     LoginRequest,
     TokenResponse,
     UserResponse,
+    ProfileResponse,
+    PublicProfileResponse,
     PasswordResetRequest,
     PasswordResetConfirm,
     EmailVerificationRequest,
@@ -62,6 +64,10 @@ from app.utils.auth import get_current_user
 # User model - needed for type annotation on protected routes
 # Defined in: app/models/user.py
 from app.models.user import User
+
+# Profile service - for accessing user profile data
+# Defined in: app/services/profile_service.py
+from app.services import profile_service
 
 # For typing
 from typing import Optional, List
@@ -156,29 +162,62 @@ async def login_route(
     )
 
 
-# GET /api/v1/auth/me - Get current authenticated user
-@router.get("/me", response_model=UserResponse)
-def get_me_route(
+# GET /api/v1/auth/me - Get current authenticated user with profile data
+@router.get("/me", response_model=ProfileResponse)
+@limiter.limit(RATE_LIMITS["standard"])  # 300/minute rate limit
+async def get_me_route(
+    request: Request,
     current_user: User = Depends(get_current_user),  # ← FastAPI injects authenticated user
+    db: Session = Depends(get_db),  # ← Database session for profile query
 ):
     """
-    Get current user information from JWT token
+    Get current user information with full profile data (bio, avatar, stats, etc.)
 
     What happens:
-    1. FastAPI runs get_current_user() dependency (which internally uses get_db())
-    2. get_current_user() validates token and queries database for user
-    3. If token is invalid/expired, raises 401 HTTPException
-    4. If valid, returns User model
-    5. response_model=UserResponse ensures password hash is NOT included in response
+    1. FastAPI runs get_current_user() dependency (validates token and gets user)
+    2. We fetch the user's profile from database (bio, xp, level, streaks, etc.)
+    3. Combine user + profile data into ProfileResponse
+    4. response_model=ProfileResponse ensures password hash is NOT included
 
     Protected Route: Requires "Authorization: Bearer <token>" header
     """
-    # Depends(get_current_user) already fetched the user from database
-    # get_current_user() handles DB connection internally
-    # Calls: app/utils/auth.py → get_current_user() (validates token and queries DB)
+    # Get user's profile (bio, avatar, stats, etc.)
+    profile = profile_service.get_profile(db, current_user.id)
 
-    # FastAPI auto-converts User model to UserResponse JSON (excludes password)
-    return current_user  # ← User model from app/models/user.py
+    # If no profile exists (shouldn't happen but defensive coding)
+    if not profile:
+        # Return user data with default profile values
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User profile not found"
+        )
+
+    # Combine user and profile data
+    # ProfileResponse expects all fields from both User and UserProfile
+    response_data = {
+        # User data
+        "id": current_user.id,
+        "email": current_user.email,
+        "username": current_user.username,
+        "is_active": current_user.is_active,
+        "is_verified": current_user.is_verified,
+        "is_admin": current_user.is_admin,
+        "created_at": current_user.created_at,
+
+        # Profile data
+        "bio": profile.bio,
+        "avatar_url": profile.avatar_url,
+        "selected_avatar_id": profile.selected_avatar_id,
+        "xp": profile.xp,
+        "level": profile.level,
+        "study_streak_current": profile.study_streak_current,
+        "study_streak_longest": profile.study_streak_longest,
+        "total_exams_taken": profile.total_exams_taken,
+        "total_questions_answered": profile.total_questions_answered,
+        "last_activity_date": profile.last_activity_date,
+    }
+
+    return ProfileResponse(**response_data)
 
 
 # ============================================
@@ -310,7 +349,9 @@ def logout_all_route(
 
 # GET /api/v1/auth/sessions - Get active sessions
 @router.get("/sessions", response_model=List[SessionResponse])
-def get_sessions_route(
+@limiter.limit(RATE_LIMITS["standard"])  # 300/minute rate limit
+async def get_sessions_route(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -318,6 +359,7 @@ def get_sessions_route(
     Get all active sessions for current user
 
     Protected Route: Requires authentication
+    Rate limit: 300 requests per minute
 
     Returns list of active sessions with device info
     """
@@ -326,7 +368,9 @@ def get_sessions_route(
 
 # GET /api/v1/auth/audit-logs - Get audit logs
 @router.get("/audit-logs", response_model=List[AuditLogResponse])
-def get_audit_logs_route(
+@limiter.limit(RATE_LIMITS["standard"])  # 300/minute rate limit
+async def get_audit_logs_route(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
     limit: int = 50,
@@ -336,6 +380,7 @@ def get_audit_logs_route(
     Get audit logs for current user
 
     Protected Route: Requires authentication
+    Rate limit: 300 requests per minute
 
     Query parameters:
     - limit: Number of logs to return (default: 50)
@@ -361,12 +406,12 @@ async def update_profile_route(
     db: Session = Depends(get_db)
 ):
     """
-    Update user profile (username and/or email)
+    Update user profile (username, email, and/or bio)
 
     Protected Route: Requires authentication
     Rate limit: 5 requests per minute
 
-    Can update username and/or email
+    Can update username, email, and/or bio
     Email changes require re-verification
     """
     return await update_profile(
@@ -374,6 +419,7 @@ async def update_profile_route(
         user_id=current_user.id,
         username=payload.username,
         email=payload.email,
+        bio=payload.bio,
         ip_address=get_client_ip(request)
     )
 
@@ -463,3 +509,73 @@ async def verify_email_route(
     4. Unlocks "Welcome Aboard" achievement + Verified Scholar avatar
     """
     return await verify_email(db=db, token=payload.token)
+
+
+# ============================================
+# PUBLIC USER PROFILE
+# ============================================
+
+# GET /api/v1/users/{user_id} - View public profile
+@router.get("/users/{user_id}", response_model=PublicProfileResponse)
+@limiter.limit(RATE_LIMITS["standard"])  # 300/minute rate limit
+async def get_public_profile_route(
+    request: Request,
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get public profile for any user by ID
+
+    Public endpoint - no authentication required
+    Rate limit: 300 requests per minute
+
+    Returns public profile data (excludes sensitive info like email)
+
+    Use cases:
+    - Click on username in leaderboard to view profile
+    - Profile sharing/viewing
+    - Social features
+
+    Errors:
+    - 404 NOT_FOUND - User does not exist
+    """
+    # Get user
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    # Get user's profile
+    profile = profile_service.get_profile(db, user_id)
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User profile not found"
+        )
+
+    # Build public profile response (excludes sensitive data)
+    response_data = {
+        # Public user data
+        "id": user.id,
+        "username": user.username,
+        "created_at": user.created_at,
+
+        # Profile customization
+        "bio": profile.bio,
+        "avatar_url": profile.avatar_url,
+        "selected_avatar_id": profile.selected_avatar_id,
+
+        # Gamification
+        "xp": profile.xp,
+        "level": profile.level,
+        "study_streak_current": profile.study_streak_current,
+        "study_streak_longest": profile.study_streak_longest,
+
+        # Stats
+        "total_exams_taken": profile.total_exams_taken,
+        "total_questions_answered": profile.total_questions_answered,
+    }
+
+    return PublicProfileResponse(**response_data)

@@ -24,6 +24,11 @@ from app.utils.auth import hash_password
 # For timestamps
 from datetime import datetime
 
+# Centralized logging
+from app.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 # CREATE USER SERVICE
 # Called by: app/controllers/auth_controller.py → signup()
@@ -54,6 +59,13 @@ def create_user(db: Session, email: str, password: str, username: str) -> User:
     db.add(user)       # Add to SQLAlchemy session (staged for insert)
     db.commit()        # ← EXECUTE: SQL INSERT INTO users (...) VALUES (...)
     db.refresh(user)   # Reload from database to get auto-generated id
+
+    # Log user creation
+    logger.info(
+        f"User created: {username}",
+        extra={"user_id": user.id, "operation": "create_user"}
+    )
+
     return user        # ← Returns User model with id field populated
 
 # GET USER BY EMAIL SERVICE
