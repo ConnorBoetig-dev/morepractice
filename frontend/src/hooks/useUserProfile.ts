@@ -46,5 +46,7 @@ export function useUserProfile() {
     level: query.data?.level ?? user?.level ?? 1,
     streak: query.data?.study_streak_current ?? user?.streak ?? 0,
     avatar: query.data?.avatar_url ?? user?.avatar,
+    quizCount: query.data?.total_exams_taken ?? 0,
+    questionsAnswered: query.data?.total_questions_answered ?? 0,
   }
 }

@@ -18,6 +18,7 @@ Functions:
 
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
+from sqlalchemy.sql import func
 from datetime import datetime, timedelta
 from typing import Optional, List, Tuple
 from fastapi import HTTPException, status
@@ -75,7 +76,7 @@ def start_study_session(
     if domain:
         query = query.filter(Question.domain == domain)
 
-    questions = query.order_by(Question.id).limit(count).all()
+    questions = query.order_by(func.random()).limit(count).all()
 
     if not questions:
         raise HTTPException(

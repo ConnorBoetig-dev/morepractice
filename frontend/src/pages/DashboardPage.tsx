@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom'
 export function DashboardPage() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
-  const { xp, level, streak } = useUserProfile()
+  const { xp, level, streak, quizCount } = useUserProfile()
 
   if (!user) {
     return null
@@ -76,7 +76,7 @@ export function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-neutral-600">Quizzes</p>
-                <p className="text-3xl font-bold text-success-500">0</p>
+                <p className="text-3xl font-bold text-success-500">{quizCount}</p>
               </div>
               <div className="w-12 h-12 bg-success-100 rounded-lg flex items-center justify-center">
                 <Target className="h-6 w-6 text-success-500" />
@@ -95,7 +95,7 @@ export function DashboardPage() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Button className="w-full justify-start" onClick={() => navigate('/app/practice')}>
               <Target className="h-5 w-5 mr-2" />
-              Start Practice Quiz
+              Start Exam Mode
             </Button>
             <Button variant="secondary" className="w-full justify-start" onClick={() => navigate('/app/study')}>
               <BookOpen className="h-5 w-5 mr-2" />

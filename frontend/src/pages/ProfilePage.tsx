@@ -83,7 +83,7 @@ export function ProfilePage() {
         <Card>
           <CardContent className="pt-6 text-center">
             <Target className="h-8 w-8 text-primary-500 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-neutral-900">{stats.total_quizzes || 0}</p>
+            <p className="text-2xl font-bold text-neutral-900">{stats.total_attempts || 0}</p>
             <p className="text-sm text-neutral-600">Total Quizzes</p>
           </CardContent>
         </Card>

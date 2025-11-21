@@ -26,7 +26,7 @@ interface SidebarProps {
 
 const navItems = [
   { to: '/app/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/app/practice', icon: Target, label: 'Practice Quiz' },
+  { to: '/app/practice', icon: Target, label: 'Exam Mode' },
   { to: '/app/study', icon: BookOpen, label: 'Study Mode' },
   { to: '/app/achievements', icon: Trophy, label: 'Achievements' },
   { to: '/app/avatars', icon: Sparkles, label: 'Avatars' },

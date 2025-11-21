@@ -4,19 +4,39 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { apiClient } from '@/services/api'
-import { Trophy, Target, Clock, CheckCircle, XCircle, RotateCcw, Home, Sparkles } from 'lucide-react'
+import { Clock, CheckCircle, XCircle, RotateCcw, Home, Sparkles } from 'lucide-react'
+
+interface QuestionReview {
+  question_id: number
+  question_text: string
+  domain: string
+  user_answer: string
+  correct_answer: string
+  is_correct: boolean
+  options: Record<string, { text: string; explanation: string }>
+}
+
+interface QuizReviewData {
+  quiz_attempt_id: number
+  exam_type: string
+  total_questions: number
+  correct_answers: number
+  score_percentage: number
+  time_taken_seconds: number
+  xp_earned: number
+  questions: QuestionReview[]
+}
 
 export function QuizResultsPage() {
   const { examType, attemptId } = useParams()
   const navigate = useNavigate()
 
   const { data, isLoading } = useQuery({
-    queryKey: ['quiz-result', attemptId],
+    queryKey: ['quiz-review', attemptId],
     queryFn: async () => {
       if (!attemptId) return null
-      const response = await apiClient.get(`/quiz/history`)
-      const attempts = response.data.attempts || []
-      return attempts.find((a: any) => a.id === parseInt(attemptId)) || null
+      const response = await apiClient.get(`/quiz/review/${attemptId}`)
+      return response.data as QuizReviewData
     },
     enabled: !!attemptId,
   })
@@ -30,11 +50,11 @@ export function QuizResultsPage() {
   }
 
   const result = data || {
-    score: 0,
     total_questions: 0,
     correct_answers: 0,
     time_taken_seconds: 0,
     xp_earned: 0,
+    questions: [],
   }
 
   const percentage = result.total_questions > 0
@@ -47,8 +67,10 @@ export function QuizResultsPage() {
     return `${mins}m ${secs}s`
   }
 
+  const optionKeys = ['A', 'B', 'C', 'D'] as const
+
   return (
-    <div className="p-6 max-w-2xl mx-auto">
+    <div className="p-6 max-w-3xl mx-auto">
       {/* Score Circle */}
       <Card className="mb-8 text-center">
         <CardContent className="py-12">
@@ -127,7 +149,7 @@ export function QuizResultsPage() {
       </div>
 
       {/* Actions */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col sm:flex-row gap-4 mb-8">
         <Button
           variant="secondary"
           className="flex-1"
@@ -144,6 +166,78 @@ export function QuizResultsPage() {
           Practice Again
         </Button>
       </div>
+
+      {/* Question Review */}
+      {result.questions && result.questions.length > 0 && (
+        <div>
+          <h2 className="text-xl font-bold text-neutral-900 mb-4">Question Review</h2>
+          <div className="space-y-6">
+            {result.questions.map((q, idx) => (
+              <Card key={q.question_id} className={q.is_correct ? 'border-success-200' : 'border-error-200'}>
+                <CardContent className="pt-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="neutral">Q{idx + 1}</Badge>
+                      {q.domain && <Badge variant="neutral">{q.domain}</Badge>}
+                    </div>
+                    {q.is_correct ? (
+                      <Badge variant="success">Correct</Badge>
+                    ) : (
+                      <Badge variant="error">Incorrect</Badge>
+                    )}
+                  </div>
+
+                  <p className="text-neutral-900 font-medium mb-4">{q.question_text}</p>
+
+                  <div className="space-y-2">
+                    {optionKeys.map((key) => {
+                      const option = q.options?.[key]
+                      if (!option) return null
+
+                      const isUserAnswer = q.user_answer === key
+                      const isCorrectAnswer = q.correct_answer === key
+                      const isWrong = isUserAnswer && !isCorrectAnswer
+
+                      return (
+                        <div
+                          key={key}
+                          className={`p-3 rounded-lg border-2 ${
+                            isCorrectAnswer
+                              ? 'border-success-500 bg-success-50'
+                              : isWrong
+                              ? 'border-error-500 bg-error-50'
+                              : 'border-neutral-200'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-start">
+                              <span className={`w-7 h-7 rounded-full flex items-center justify-center mr-3 text-sm font-medium flex-shrink-0 ${
+                                isCorrectAnswer ? 'bg-success-500 text-white' :
+                                isWrong ? 'bg-error-500 text-white' :
+                                'bg-neutral-200 text-neutral-700'
+                              }`}>
+                                {key}
+                              </span>
+                              <span className="text-neutral-900 text-sm">{option.text}</span>
+                            </div>
+                            {isCorrectAnswer && <CheckCircle className="h-5 w-5 text-success-500 flex-shrink-0" />}
+                            {isWrong && <XCircle className="h-5 w-5 text-error-500 flex-shrink-0" />}
+                          </div>
+                          {(isCorrectAnswer || isWrong) && option.explanation && (
+                            <p className={`mt-2 ml-10 text-sm ${isCorrectAnswer ? 'text-success-700' : 'text-error-700'}`}>
+                              {option.explanation}
+                            </p>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

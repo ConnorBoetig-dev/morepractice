@@ -176,7 +176,7 @@ def answer_study_question_controller(
             "level_up": False,  # TODO: Track level ups properly
             "achievements_unlocked": [
                 {
-                    "id": ach.id,
+                    "id": ach.achievement_id,
                     "name": ach.name,
                     "description": ach.description,
                     "icon": ach.icon,

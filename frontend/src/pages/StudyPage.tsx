@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { apiClient } from '@/services/api'
-import { BookOpen, CheckCircle, XCircle, ArrowRight, Target, AlertCircle, X } from 'lucide-react'
+import { BookOpen, CheckCircle, XCircle, ArrowRight, Target, AlertCircle, X, Trophy, RotateCcw } from 'lucide-react'
 
 const EXAM_DISPLAY_NAMES: Record<string, string> = {
   'a1101': 'A+ Core 1',
@@ -44,6 +44,12 @@ interface StudySession {
   current_question: StudyQuestion
 }
 
+interface StudyResults {
+  totalQuestions: number
+  correctCount: number
+  examType: string
+}
+
 export function StudyPage() {
   const queryClient = useQueryClient()
   const [selectedExam, setSelectedExam] = useState<string | null>(null)
@@ -53,8 +59,11 @@ export function StudyPage() {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<{correct: boolean; correctAnswer: string; allOptions?: Record<string, {text: string; explanation: string}>} | null>(null)
   const [showActiveSessionPrompt, setShowActiveSessionPrompt] = useState(false)
+  const [submittedQuestionId, setSubmittedQuestionId] = useState<number | null>(null)
+  const [correctCount, setCorrectCount] = useState(0)
+  const [studyResults, setStudyResults] = useState<StudyResults | null>(null)
 
-  // Check for active session on mount
+  // Check for active session on mount (only when no local session)
   const { data: activeSession } = useQuery({
     queryKey: ['active-study-session'],
     queryFn: async () => {
@@ -65,6 +74,8 @@ export function StudyPage() {
         return null
       }
     },
+    enabled: !session, // Only fetch when we don't have a local session
+    refetchOnWindowFocus: false, // Don't refetch while user is working
   })
 
   // If there's an active session, auto-resume it
@@ -72,6 +83,8 @@ export function StudyPage() {
     if (activeSession && activeSession.session_id && !session) {
       setSession(activeSession)
       setSelectedExam(activeSession.exam_type || null)
+      // Set question number based on backend's current_index (0-based)
+      setQuestionNumber((activeSession.current_index || 0) + 1)
     }
   }, [activeSession, session])
 
@@ -104,23 +117,30 @@ export function StudyPage() {
   // Abandon session mutation
   const abandonMutation = useMutation({
     mutationFn: async () => {
-      try {
-        const response = await apiClient.delete('/study/abandon')
-        return response.data
-      } catch (error: any) {
-        // 404 means session already completed/doesn't exist - that's fine
-        if (error?.response?.status === 404) {
-          return { already_completed: true }
-        }
-        throw error
-      }
+      const response = await apiClient.delete('/study/abandon')
+      return response.data
     },
     onSuccess: () => {
+      // Clear cached data first to prevent useEffect from restoring
+      queryClient.setQueryData(['active-study-session'], null)
       setSession(null)
       setShowActiveSessionPrompt(false)
       setQuestionNumber(1)
       setSelectedAnswer(null)
       setFeedback(null)
+      setSubmittedQuestionId(null)
+      queryClient.invalidateQueries({ queryKey: ['active-study-session'] })
+    },
+    onError: () => {
+      // Even if abandon fails (404 = session already gone), clear UI state
+      // Clear cached data first to prevent useEffect from restoring
+      queryClient.setQueryData(['active-study-session'], null)
+      setSession(null)
+      setShowActiveSessionPrompt(false)
+      setQuestionNumber(1)
+      setSelectedAnswer(null)
+      setFeedback(null)
+      setSubmittedQuestionId(null)
       queryClient.invalidateQueries({ queryKey: ['active-study-session'] })
     },
   })
@@ -136,6 +156,8 @@ export function StudyPage() {
       setQuestionNumber(1)
       setFeedback(null)
       setSelectedAnswer(null)
+      setCorrectCount(0)
+      setStudyResults(null)
       queryClient.invalidateQueries({ queryKey: ['active-study-session'] })
     },
     onError: () => {
@@ -146,37 +168,39 @@ export function StudyPage() {
 
   // Submit answer mutation
   const answerMutation = useMutation({
-    mutationFn: async (answer: string) => {
-      try {
-        const response = await apiClient.post('/study/answer', {
-          session_id: session?.session_id,
-          question_id: session?.current_question?.question_id,
-          user_answer: answer,
-        })
-        return response.data
-      } catch (error: any) {
-        // 400/404 may mean session already completed
-        if (error?.response?.status === 400 || error?.response?.status === 404) {
-          return { session_completed: true, is_correct: false, correct_answer: '', all_options: {} }
-        }
-        throw error
-      }
+    mutationFn: async ({ answer, questionId, sessionId }: { answer: string; questionId: number; sessionId: number }) => {
+      const response = await apiClient.post('/study/answer', {
+        session_id: sessionId,
+        question_id: questionId,
+        user_answer: answer,
+      })
+      return response.data
     },
     onSuccess: (data) => {
-      if (data.session_completed && !data.next_question) {
-        // Session was already complete, go back to selection
-        setSession(null)
-        setQuestionNumber(1)
-        setSelectedAnswer(null)
-        setFeedback(null)
-        queryClient.invalidateQueries({ queryKey: ['active-study-session'] })
-        return
+      // Track correct answers
+      if (data.is_correct) {
+        setCorrectCount((c) => c + 1)
       }
+      // Show feedback (even for last question)
       setFeedback({
         correct: data.is_correct,
         correctAnswer: data.correct_answer,
         allOptions: data.all_options,
       })
+    },
+    onError: (error: any) => {
+      console.error('Answer submission failed:', error?.response?.status, error?.response?.data)
+      // Reset submission tracking so user can retry if needed
+      setSubmittedQuestionId(null)
+      if (error?.response?.status === 400 || error?.response?.status === 404) {
+        // Clear cached data first to prevent useEffect from restoring
+        queryClient.setQueryData(['active-study-session'], null)
+        setSession(null)
+        setQuestionNumber(1)
+        setSelectedAnswer(null)
+        setFeedback(null)
+        queryClient.invalidateQueries({ queryKey: ['active-study-session'] })
+      }
     },
   })
 
@@ -188,27 +212,40 @@ export function StudyPage() {
   }
 
   const handleSubmitAnswer = () => {
-    if (selectedAnswer) {
-      answerMutation.mutate(selectedAnswer)
+    const questionId = session?.current_question?.question_id
+    const sessionId = session?.session_id
+    // Guard: need answer, session, question_id, not pending, and not already submitted for this question
+    if (selectedAnswer && questionId && sessionId && !answerMutation.isPending && submittedQuestionId !== questionId) {
+      setSubmittedQuestionId(questionId)
+      answerMutation.mutate({ answer: selectedAnswer, questionId, sessionId })
     }
   }
 
   const handleNextQuestion = () => {
     const data = answerMutation.data
-    if (data?.next_question) {
+    // Check both session_completed flag AND next_question to determine if done
+    if (data?.session_completed || !data?.next_question) {
+      // Session complete - show results
+      setStudyResults({
+        totalQuestions: session?.total_questions || questionNumber,
+        correctCount: correctCount,
+        examType: selectedExam || '',
+      })
+      // Clear cached data to prevent useEffect from restoring
+      queryClient.setQueryData(['active-study-session'], null)
+      setSession(null)
+      queryClient.invalidateQueries({ queryKey: ['active-study-session'] })
+    } else {
+      // More questions remain
       setSession((prev) => prev ? {
         ...prev,
         current_question: data.next_question,
       } : null)
       setQuestionNumber((n) => n + 1)
-    } else {
-      // Session complete
-      setSession(null)
-      setSelectedExam(null)
-      setQuestionCount('')
     }
     setSelectedAnswer(null)
     setFeedback(null)
+    setSubmittedQuestionId(null)
   }
 
   // Active study session view
@@ -229,9 +266,11 @@ export function StudyPage() {
               size="sm"
               onClick={() => {
                 if (confirm('Are you sure you want to exit? Your progress will be lost.')) {
+                  // Try to abandon on backend, but always clear local state
                   abandonMutation.mutate()
                 }
               }}
+              disabled={abandonMutation.isPending}
               className="text-neutral-500 hover:text-error-600"
             >
               <X className="h-4 w-4 mr-1" />
@@ -334,11 +373,74 @@ export function StudyPage() {
             </Button>
           ) : (
             <Button onClick={handleNextQuestion}>
-              {questionNumber < session.total_questions ? 'Next Question' : 'Finish Session'}
+              {answerMutation.data?.next_question ? 'Next Question' : 'Finish Exam'}
               <ArrowRight className="h-5 w-5 ml-2" />
             </Button>
           )}
         </div>
+      </div>
+    )
+  }
+
+  // Results screen
+  if (studyResults) {
+    const percentage = Math.round((studyResults.correctCount / studyResults.totalQuestions) * 100)
+    const passed = percentage >= 70
+
+    return (
+      <div className="p-6 max-w-2xl mx-auto">
+        <Card className="text-center">
+          <CardContent className="pt-8 pb-8">
+            <div className={`w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center ${
+              passed ? 'bg-success-100' : 'bg-error-100'
+            }`}>
+              <Trophy className={`h-10 w-10 ${passed ? 'text-success-500' : 'text-error-500'}`} />
+            </div>
+
+            <h1 className="text-3xl font-bold text-neutral-900 mb-2">
+              {passed ? 'Great Job!' : 'Keep Practicing!'}
+            </h1>
+            <p className="text-neutral-600 mb-6">
+              {EXAM_DISPLAY_NAMES[studyResults.examType] || studyResults.examType.toUpperCase()} Study Session Complete
+            </p>
+
+            <div className="text-6xl font-bold mb-2" style={{ color: passed ? '#22c55e' : '#ef4444' }}>
+              {percentage}%
+            </div>
+            <p className="text-neutral-600 mb-8">
+              {studyResults.correctCount} of {studyResults.totalQuestions} correct
+            </p>
+
+            <div className="flex gap-4 justify-center">
+              <Button
+                onClick={() => {
+                  setStudyResults(null)
+                  setSelectedExam(null)
+                  setQuestionCount('')
+                  setQuestionNumber(1)
+                  setCorrectCount(0)
+                }}
+                variant="secondary"
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                New Session
+              </Button>
+              <Button
+                onClick={() => {
+                  const examType = studyResults.examType
+                  const count = studyResults.totalQuestions
+                  setStudyResults(null)
+                  setQuestionCount(count.toString())
+                  setQuestionNumber(1)
+                  setCorrectCount(0)
+                  startMutation.mutate({ examType, count })
+                }}
+              >
+                Try Again
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }
