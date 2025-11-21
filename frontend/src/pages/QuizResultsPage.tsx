@@ -80,7 +80,7 @@ export function QuizResultsPage() {
                 cx="80"
                 cy="80"
                 r="70"
-                stroke="#e5e7eb"
+                className="stroke-neutral-200 dark:stroke-slate-600"
                 strokeWidth="12"
                 fill="none"
               />
@@ -97,15 +97,15 @@ export function QuizResultsPage() {
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-4xl font-bold text-neutral-900">{percentage}%</span>
-              <span className="text-sm text-neutral-600">Score</span>
+              <span className="text-4xl font-bold text-neutral-900 dark:text-slate-100">{percentage}%</span>
+              <span className="text-sm text-neutral-600 dark:text-slate-400">Score</span>
             </div>
           </div>
 
-          <h1 className="text-2xl font-bold text-neutral-900 mb-2">
+          <h1 className="text-2xl font-bold text-neutral-900 dark:text-slate-100 mb-2">
             {percentage >= 70 ? 'Great Job!' : percentage >= 50 ? 'Good Effort!' : 'Keep Practicing!'}
           </h1>
-          <p className="text-neutral-600">
+          <p className="text-neutral-600 dark:text-slate-400">
             You answered {result.correct_answers} out of {result.total_questions} questions correctly
           </p>
         </CardContent>
@@ -116,26 +116,26 @@ export function QuizResultsPage() {
         <Card>
           <CardContent className="pt-6 text-center">
             <CheckCircle className="h-8 w-8 text-success-500 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-neutral-900">{result.correct_answers}</p>
-            <p className="text-sm text-neutral-600">Correct</p>
+            <p className="text-2xl font-bold text-neutral-900 dark:text-slate-100">{result.correct_answers}</p>
+            <p className="text-sm text-neutral-600 dark:text-slate-400">Correct</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="pt-6 text-center">
             <XCircle className="h-8 w-8 text-error-500 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-neutral-900">
+            <p className="text-2xl font-bold text-neutral-900 dark:text-slate-100">
               {result.total_questions - result.correct_answers}
             </p>
-            <p className="text-sm text-neutral-600">Incorrect</p>
+            <p className="text-sm text-neutral-600 dark:text-slate-400">Incorrect</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="pt-6 text-center">
             <Clock className="h-8 w-8 text-primary-500 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-neutral-900">{formatTime(result.time_taken_seconds || 0)}</p>
-            <p className="text-sm text-neutral-600">Time Taken</p>
+            <p className="text-2xl font-bold text-neutral-900 dark:text-slate-100">{formatTime(result.time_taken_seconds || 0)}</p>
+            <p className="text-sm text-neutral-600 dark:text-slate-400">Time Taken</p>
           </CardContent>
         </Card>
 
@@ -143,7 +143,7 @@ export function QuizResultsPage() {
           <CardContent className="pt-6 text-center">
             <Sparkles className="h-8 w-8 text-accent-purple-500 mx-auto mb-2" />
             <p className="text-2xl font-bold text-accent-purple-500">+{result.xp_earned || 0}</p>
-            <p className="text-sm text-neutral-600">XP Earned</p>
+            <p className="text-sm text-neutral-600 dark:text-slate-400">XP Earned</p>
           </CardContent>
         </Card>
       </div>
@@ -170,7 +170,7 @@ export function QuizResultsPage() {
       {/* Question Review */}
       {result.questions && result.questions.length > 0 && (
         <div>
-          <h2 className="text-xl font-bold text-neutral-900 mb-4">Question Review</h2>
+          <h2 className="text-xl font-bold text-neutral-900 dark:text-slate-100 mb-4">Question Review</h2>
           <div className="space-y-6">
             {result.questions.map((q, idx) => (
               <Card key={q.question_id} className={q.is_correct ? 'border-success-200' : 'border-error-200'}>
@@ -187,7 +187,7 @@ export function QuizResultsPage() {
                     )}
                   </div>
 
-                  <p className="text-neutral-900 font-medium mb-4">{q.question_text}</p>
+                  <p className="text-neutral-900 dark:text-slate-100 font-medium mb-4">{q.question_text}</p>
 
                   <div className="space-y-2">
                     {optionKeys.map((key) => {
@@ -203,10 +203,10 @@ export function QuizResultsPage() {
                           key={key}
                           className={`p-3 rounded-lg border-2 ${
                             isCorrectAnswer
-                              ? 'border-success-500 bg-success-50'
+                              ? 'border-success-500 bg-success-50 dark:bg-success-500/20'
                               : isWrong
-                              ? 'border-error-500 bg-error-50'
-                              : 'border-neutral-200'
+                              ? 'border-error-500 bg-error-50 dark:bg-error-500/20'
+                              : 'border-neutral-200 dark:border-slate-600'
                           }`}
                         >
                           <div className="flex items-start justify-between">
@@ -214,17 +214,17 @@ export function QuizResultsPage() {
                               <span className={`w-7 h-7 rounded-full flex items-center justify-center mr-3 text-sm font-medium flex-shrink-0 ${
                                 isCorrectAnswer ? 'bg-success-500 text-white' :
                                 isWrong ? 'bg-error-500 text-white' :
-                                'bg-neutral-200 text-neutral-700'
+                                'bg-neutral-200 dark:bg-slate-600 text-neutral-700 dark:text-slate-300'
                               }`}>
                                 {key}
                               </span>
-                              <span className="text-neutral-900 text-sm">{option.text}</span>
+                              <span className="text-neutral-900 dark:text-slate-100 text-sm">{option.text}</span>
                             </div>
                             {isCorrectAnswer && <CheckCircle className="h-5 w-5 text-success-500 flex-shrink-0" />}
                             {isWrong && <XCircle className="h-5 w-5 text-error-500 flex-shrink-0" />}
                           </div>
                           {(isCorrectAnswer || isWrong) && option.explanation && (
-                            <p className={`mt-2 ml-10 text-sm ${isCorrectAnswer ? 'text-success-700' : 'text-error-700'}`}>
+                            <p className={`mt-2 ml-10 text-sm ${isCorrectAnswer ? 'text-success-700 dark:text-success-400' : 'text-error-700 dark:text-error-400'}`}>
                               {option.explanation}
                             </p>
                           )}

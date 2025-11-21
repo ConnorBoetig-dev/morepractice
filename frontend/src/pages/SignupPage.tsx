@@ -13,7 +13,7 @@ import { Target } from 'lucide-react'
 const signupSchema = z.object({
   email: z.string().email('Invalid email address'),
   username: z.string().min(3, 'Username must be at least 3 characters'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string().min(12, 'Password must be at least 12 characters'),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
@@ -65,12 +65,12 @@ export function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-neutral-50 dark:bg-slate-800 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="flex items-center justify-center space-x-2 mb-8">
           <Target className="h-10 w-10 text-primary-500" />
-          <h1 className="text-3xl font-bold text-neutral-900">CompTIA Practice</h1>
+          <h1 className="text-3xl font-bold text-neutral-900 dark:text-slate-100">CompTIA Practice</h1>
         </div>
 
         <Card>
@@ -88,7 +88,7 @@ export function SignupPage() {
               )}
 
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-neutral-700 mb-1">
+                <label htmlFor="email" className="block text-sm font-medium text-neutral-700 dark:text-slate-300 mb-1">
                   Email
                 </label>
                 <Input
@@ -101,7 +101,7 @@ export function SignupPage() {
               </div>
 
               <div>
-                <label htmlFor="username" className="block text-sm font-medium text-neutral-700 mb-1">
+                <label htmlFor="username" className="block text-sm font-medium text-neutral-700 dark:text-slate-300 mb-1">
                   Username
                 </label>
                 <Input
@@ -114,7 +114,7 @@ export function SignupPage() {
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-neutral-700 mb-1">
+                <label htmlFor="password" className="block text-sm font-medium text-neutral-700 dark:text-slate-300 mb-1">
                   Password
                 </label>
                 <Input
@@ -127,7 +127,7 @@ export function SignupPage() {
               </div>
 
               <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-neutral-700 mb-1">
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-neutral-700 dark:text-slate-300 mb-1">
                   Confirm Password
                 </label>
                 <Input
@@ -143,7 +143,7 @@ export function SignupPage() {
                 Sign Up
               </Button>
 
-              <div className="text-center text-sm text-neutral-600">
+              <div className="text-center text-sm text-neutral-600 dark:text-slate-400">
                 Already have an account?{' '}
                 <Link to="/login" className="text-primary-500 hover:text-primary-600 font-medium">
                   Log in

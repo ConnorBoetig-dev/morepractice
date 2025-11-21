@@ -7,21 +7,29 @@ import { Input } from '@/components/ui/Input'
 import { apiClient } from '@/services/api'
 import { Bookmark, Trash2, Edit2, X, Check, Search } from 'lucide-react'
 
+interface QuestionOption {
+  text: string
+  explanation: string
+}
+
 interface BookmarkedQuestion {
   id: number
   question_id: number
-  note: string
+  notes: string | null
   created_at: string
   question: {
     id: number
+    question_id: string
     question_text: string
     exam_type: string
     domain: string
     correct_answer: string
-    option_a: string
-    option_b: string
-    option_c: string
-    option_d: string
+    options: {
+      A: QuestionOption
+      B: QuestionOption
+      C: QuestionOption
+      D: QuestionOption
+    }
   }
 }
 
@@ -64,12 +72,12 @@ export function BookmarksPage() {
     (b) =>
       b.question.question_text.toLowerCase().includes(search.toLowerCase()) ||
       b.question.domain.toLowerCase().includes(search.toLowerCase()) ||
-      b.note?.toLowerCase().includes(search.toLowerCase())
+      b.notes?.toLowerCase().includes(search.toLowerCase())
   )
 
   const handleStartEdit = (bookmark: BookmarkedQuestion) => {
     setEditingId(bookmark.question_id)
-    setEditNote(bookmark.note || '')
+    setEditNote(bookmark.notes || '')
   }
 
   const handleSaveNote = (questionId: number) => {
@@ -79,8 +87,8 @@ export function BookmarksPage() {
   return (
     <div className="p-6">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-neutral-900 mb-2">Bookmarks</h1>
-        <p className="text-neutral-600">Questions you've saved for later review</p>
+        <h1 className="text-3xl font-bold text-neutral-900 dark:text-slate-100 mb-2">Bookmarks</h1>
+        <p className="text-neutral-600 dark:text-slate-400">Questions you've saved for later review</p>
       </div>
 
       {/* Search */}
@@ -104,8 +112,8 @@ export function BookmarksPage() {
           {[1, 2, 3].map((i) => (
             <Card key={i} className="animate-pulse">
               <CardContent className="py-6">
-                <div className="h-6 bg-neutral-200 rounded w-3/4 mb-2" />
-                <div className="h-4 bg-neutral-200 rounded w-1/2" />
+                <div className="h-6 bg-neutral-200 dark:bg-slate-600 rounded w-3/4 mb-2" />
+                <div className="h-4 bg-neutral-200 dark:bg-slate-600 rounded w-1/2" />
               </CardContent>
             </Card>
           ))}
@@ -113,11 +121,11 @@ export function BookmarksPage() {
       ) : filteredBookmarks.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <Bookmark className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-neutral-900 mb-2">
+            <Bookmark className="h-12 w-12 text-neutral-400 dark:text-slate-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-neutral-900 dark:text-slate-100 mb-2">
               {search ? 'No matching bookmarks' : 'No Bookmarks Yet'}
             </h3>
-            <p className="text-neutral-600">
+            <p className="text-neutral-600 dark:text-slate-400">
               {search
                 ? 'Try a different search term'
                 : 'Bookmark questions during quizzes to review them later'}
@@ -150,21 +158,26 @@ export function BookmarksPage() {
                   </div>
                 </div>
 
-                <p className="text-neutral-900 mb-4">{bookmark.question.question_text}</p>
+                <p className="text-neutral-900 dark:text-slate-100 mb-4">{bookmark.question.question_text}</p>
 
                 {/* Options with correct answer highlighted */}
-                <div className="grid grid-cols-2 gap-2 mb-4 text-sm">
-                  {['A', 'B', 'C', 'D'].map((opt) => {
-                    const optKey = `option_${opt.toLowerCase()}` as keyof typeof bookmark.question
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4 text-sm">
+                  {(['A', 'B', 'C', 'D'] as const).map((opt) => {
+                    const option = bookmark.question.options?.[opt]
                     const isCorrect = bookmark.question.correct_answer === opt
+                    if (!option) return null
                     return (
                       <div
                         key={opt}
-                        className={`p-2 rounded ${
-                          isCorrect ? 'bg-success-50 text-success-700' : 'bg-neutral-50 text-neutral-700'
+                        className={`p-3 rounded-lg ${
+                          isCorrect ? 'bg-success-500/20 text-success-400 border border-success-500/30' : 'bg-slate-600 text-slate-300'
                         }`}
                       >
-                        <span className="font-medium">{opt}:</span> {bookmark.question[optKey]}
+                        <span className="font-bold mr-2">{opt}:</span>
+                        <span>{option.text}</span>
+                        {isCorrect && option.explanation && (
+                          <p className="text-xs mt-1 text-success-400/80">{option.explanation}</p>
+                        )}
                       </div>
                     )
                   })}
@@ -190,10 +203,10 @@ export function BookmarksPage() {
                       <X className="h-4 w-4" />
                     </Button>
                   </div>
-                ) : bookmark.note ? (
-                  <div className="bg-neutral-50 p-3 rounded-lg">
-                    <p className="text-sm text-neutral-600">
-                      <span className="font-medium">Note:</span> {bookmark.note}
+                ) : bookmark.notes ? (
+                  <div className="bg-slate-600 p-3 rounded-lg">
+                    <p className="text-sm text-slate-300">
+                      <span className="font-medium">Note:</span> {bookmark.notes}
                     </p>
                   </div>
                 ) : null}

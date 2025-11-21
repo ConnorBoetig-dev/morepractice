@@ -25,6 +25,7 @@ import { BookmarksPage } from './pages/BookmarksPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { SettingsPage } from './pages/SettingsPage'
 import { AdminPage } from './pages/AdminPage'
+import { PublicProfilePage } from './pages/PublicProfilePage'
 
 function App() {
   return (
@@ -67,6 +68,7 @@ function App() {
             {/* User */}
             <Route path="bookmarks" element={<BookmarksPage />} />
             <Route path="profile" element={<ProfilePage />} />
+            <Route path="users/:userId" element={<PublicProfilePage />} />
             <Route path="settings" element={<SettingsPage />} />
 
             {/* Admin */}

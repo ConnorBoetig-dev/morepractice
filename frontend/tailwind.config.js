@@ -59,14 +59,20 @@ export default {
         },
         accent: {
           purple: {
+            50: '#faf5ff',
+            100: '#f3e8ff',
             500: '#a855f7', // XP
             600: '#9333ea',
           },
           orange: {
+            50: '#fff7ed',
+            100: '#ffedd5',
             500: '#f97316', // Streaks
             600: '#ea580c',
           },
           gold: {
+            50: '#fffbeb',
+            100: '#fef3c7',
             500: '#f59e0b', // Achievements
             600: '#d97706',
           },

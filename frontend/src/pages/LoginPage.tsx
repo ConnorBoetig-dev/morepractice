@@ -59,12 +59,12 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-neutral-50 dark:bg-slate-800 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="flex items-center justify-center space-x-2 mb-8">
           <Target className="h-10 w-10 text-primary-500" />
-          <h1 className="text-3xl font-bold text-neutral-900">CompTIA Practice</h1>
+          <h1 className="text-3xl font-bold text-neutral-900 dark:text-slate-100">CompTIA Practice</h1>
         </div>
 
         <Card>
@@ -82,7 +82,7 @@ export function LoginPage() {
               )}
 
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-neutral-700 mb-1">
+                <label htmlFor="email" className="block text-sm font-medium text-neutral-700 dark:text-slate-300 mb-1">
                   Email
                 </label>
                 <Input
@@ -95,7 +95,7 @@ export function LoginPage() {
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-neutral-700 mb-1">
+                <label htmlFor="password" className="block text-sm font-medium text-neutral-700 dark:text-slate-300 mb-1">
                   Password
                 </label>
                 <Input
@@ -111,7 +111,7 @@ export function LoginPage() {
                 Log In
               </Button>
 
-              <div className="text-center text-sm text-neutral-600">
+              <div className="text-center text-sm text-neutral-600 dark:text-slate-400">
                 Don't have an account?{' '}
                 <Link to="/signup" className="text-primary-500 hover:text-primary-600 font-medium">
                   Sign up

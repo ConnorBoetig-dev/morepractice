@@ -52,30 +52,33 @@ export function Sidebar({ className }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 h-screen w-64 bg-white border-r border-neutral-200 flex flex-col',
+        'fixed left-0 top-0 h-screen w-64 bg-white dark:bg-slate-900 border-r border-neutral-200 dark:border-slate-700 flex flex-col',
         className
       )}
     >
       {/* Logo */}
-      <div className="p-6 border-b border-neutral-200">
+      <div className="p-6 border-b border-neutral-200 dark:border-slate-700">
         <NavLink to="/app/dashboard" className="flex items-center space-x-2">
           <Target className="h-8 w-8 text-primary-500" />
-          <span className="text-xl font-bold text-neutral-900">CompTIA Practice</span>
+          <span className="text-xl font-bold text-neutral-900 dark:text-slate-100">CompTIA Practice</span>
         </NavLink>
       </div>
 
-      {/* User Card */}
+      {/* User Card - Clickable to navigate to Profile */}
       {user && (
-        <div className="p-4 border-b border-neutral-200">
+        <NavLink
+          to="/app/profile"
+          className="block p-4 border-b border-neutral-200 dark:border-slate-700 hover:bg-neutral-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+        >
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
-              <span className="text-primary-600 font-semibold">
+            <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900/50 flex items-center justify-center">
+              <span className="text-primary-600 dark:text-primary-400 font-semibold">
                 {user.username.charAt(0).toUpperCase()}
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-neutral-900 truncate">{user.username}</p>
-              <p className="text-xs text-neutral-500">Level {level}</p>
+              <p className="text-sm font-medium text-neutral-900 dark:text-slate-100 truncate">{user.username}</p>
+              <p className="text-xs text-neutral-500 dark:text-slate-400">Level {level}</p>
             </div>
           </div>
           <div className="mt-3 flex items-center space-x-4 text-xs">
@@ -88,7 +91,7 @@ export function Sidebar({ className }: SidebarProps) {
               <span>{streak} day streak</span>
             </div>
           </div>
-        </div>
+        </NavLink>
       )}
 
       {/* Navigation */}
@@ -102,8 +105,8 @@ export function Sidebar({ className }: SidebarProps) {
                   cn(
                     'flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                     isActive
-                      ? 'bg-primary-50 text-primary-600'
-                      : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'
+                      ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400'
+                      : 'text-neutral-600 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-800 hover:text-neutral-900 dark:hover:text-slate-100'
                   )
                 }
               >
@@ -115,15 +118,15 @@ export function Sidebar({ className }: SidebarProps) {
 
           {/* Admin Link (conditional) */}
           {user?.isAdmin && (
-            <li className="pt-4 mt-4 border-t border-neutral-200">
+            <li className="pt-4 mt-4 border-t border-neutral-200 dark:border-slate-700">
               <NavLink
                 to="/app/admin"
                 className={({ isActive }) =>
                   cn(
                     'flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                     isActive
-                      ? 'bg-error-50 text-error-600'
-                      : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'
+                      ? 'bg-error-50 dark:bg-error-900/30 text-error-600 dark:text-error-400'
+                      : 'text-neutral-600 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-800 hover:text-neutral-900 dark:hover:text-slate-100'
                   )
                 }
               >
@@ -136,10 +139,10 @@ export function Sidebar({ className }: SidebarProps) {
       </nav>
 
       {/* Logout */}
-      <div className="p-4 border-t border-neutral-200">
+      <div className="p-4 border-t border-neutral-200 dark:border-slate-700">
         <Button
           variant="ghost"
-          className="w-full justify-start text-neutral-600 hover:text-error-600"
+          className="w-full justify-start text-neutral-600 dark:text-slate-400 hover:text-error-600 dark:hover:text-error-400"
           onClick={handleLogout}
         >
           <LogOut className="h-5 w-5 mr-3" />

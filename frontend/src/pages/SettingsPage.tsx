@@ -73,8 +73,8 @@ export function SettingsPage() {
   return (
     <div className="p-6 max-w-2xl">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-neutral-900 mb-2">Settings</h1>
-        <p className="text-neutral-600">Manage your account settings</p>
+        <h1 className="text-3xl font-bold text-neutral-900 dark:text-slate-100 mb-2">Settings</h1>
+        <p className="text-neutral-600 dark:text-slate-400">Manage your account settings</p>
       </div>
 
       {message && (
@@ -100,13 +100,13 @@ export function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Username</label>
+            <label className="block text-sm font-medium text-neutral-700 dark:text-slate-300 mb-1">Username</label>
             <Input value={username} onChange={(e) => setUsername(e.target.value)} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Email</label>
-            <Input value={user?.email || ''} disabled className="bg-neutral-50" />
-            <p className="text-xs text-neutral-500 mt-1">Email cannot be changed</p>
+            <label className="block text-sm font-medium text-neutral-700 dark:text-slate-300 mb-1">Email</label>
+            <Input value={user?.email || ''} disabled className="bg-neutral-50 dark:bg-slate-600" />
+            <p className="text-xs text-neutral-500 dark:text-slate-400 mt-1">Email cannot be changed</p>
           </div>
           <Button
             onClick={handleUpdateProfile}
@@ -129,7 +129,7 @@ export function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Current Password</label>
+            <label className="block text-sm font-medium text-neutral-700 dark:text-slate-300 mb-1">Current Password</label>
             <Input
               type="password"
               value={currentPassword}
@@ -137,7 +137,7 @@ export function SettingsPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">New Password</label>
+            <label className="block text-sm font-medium text-neutral-700 dark:text-slate-300 mb-1">New Password</label>
             <Input
               type="password"
               value={newPassword}
@@ -145,7 +145,7 @@ export function SettingsPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Confirm New Password</label>
+            <label className="block text-sm font-medium text-neutral-700 dark:text-slate-300 mb-1">Confirm New Password</label>
             <Input
               type="password"
               value={confirmPassword}
@@ -171,10 +171,10 @@ export function SettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-neutral-50 rounded-lg">
+          <div className="flex items-center justify-between p-4 bg-neutral-50 dark:bg-slate-600 rounded-lg">
             <div>
-              <p className="font-medium text-neutral-900">Log out</p>
-              <p className="text-sm text-neutral-600">Sign out of your account</p>
+              <p className="font-medium text-neutral-900 dark:text-slate-100">Log out</p>
+              <p className="text-sm text-neutral-600 dark:text-slate-400">Sign out of your account</p>
             </div>
             <Button variant="secondary" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />

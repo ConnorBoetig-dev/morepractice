@@ -71,17 +71,17 @@ export function AchievementsPage() {
   }
 
   const tierBgColors: Record<string, string> = {
-    bronze: 'bg-amber-100',
-    silver: 'bg-gray-100',
-    gold: 'bg-yellow-100',
-    platinum: 'bg-purple-100',
+    bronze: 'bg-amber-100 dark:bg-amber-500/20',
+    silver: 'bg-gray-100 dark:bg-gray-500/20',
+    gold: 'bg-yellow-100 dark:bg-yellow-500/20',
+    platinum: 'bg-purple-100 dark:bg-purple-500/20',
   }
 
   return (
     <div className="p-6">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-neutral-900 mb-2">Achievements</h1>
-        <p className="text-neutral-600">Track your progress and earn rewards</p>
+        <h1 className="text-3xl font-bold text-neutral-900 dark:text-slate-100 mb-2">Achievements</h1>
+        <p className="text-neutral-600 dark:text-slate-400">Track your progress and earn rewards</p>
       </div>
 
       {/* Stats */}
@@ -89,24 +89,24 @@ export function AchievementsPage() {
         <Card>
           <CardContent className="pt-6 text-center">
             <Trophy className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-neutral-900">{earnedCount}/{achievements.length}</p>
-            <p className="text-sm text-neutral-600">Earned</p>
+            <p className="text-2xl font-bold text-neutral-900 dark:text-slate-100">{earnedCount}/{achievements.length}</p>
+            <p className="text-sm text-neutral-600 dark:text-slate-400">Earned</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6 text-center">
             <Sparkles className="h-8 w-8 text-purple-500 mx-auto mb-2" />
             <p className="text-2xl font-bold text-purple-600">{totalXP.toLocaleString()}</p>
-            <p className="text-sm text-neutral-600">XP Earned</p>
+            <p className="text-sm text-neutral-600 dark:text-slate-400">XP Earned</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6 text-center">
             <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-neutral-900">
+            <p className="text-2xl font-bold text-neutral-900 dark:text-slate-100">
               {achievements.length > 0 ? Math.round((earnedCount / achievements.length) * 100) : 0}%
             </p>
-            <p className="text-sm text-neutral-600">Complete</p>
+            <p className="text-sm text-neutral-600 dark:text-slate-400">Complete</p>
           </CardContent>
         </Card>
       </div>
@@ -117,9 +117,9 @@ export function AchievementsPage() {
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <Card key={i} className="animate-pulse">
               <CardContent className="pt-6">
-                <div className="h-14 w-14 bg-neutral-200 rounded-lg mb-4" />
-                <div className="h-5 bg-neutral-200 rounded w-2/3 mb-2" />
-                <div className="h-4 bg-neutral-200 rounded w-full" />
+                <div className="h-14 w-14 bg-neutral-200 dark:bg-slate-600 rounded-lg mb-4" />
+                <div className="h-5 bg-neutral-200 dark:bg-slate-600 rounded w-2/3 mb-2" />
+                <div className="h-4 bg-neutral-200 dark:bg-slate-600 rounded w-full" />
               </CardContent>
             </Card>
           ))}
@@ -129,7 +129,7 @@ export function AchievementsPage() {
           {sortedAchievements.map((achievement) => (
             <Card
               key={achievement.id}
-              className={`transition-all ${
+              className={`transition-all cursor-pointer hover:scale-105 hover:shadow-lg hover:shadow-primary-500/20 ${
                 achievement.earned ? '' : 'opacity-50'
               }`}
             >
@@ -138,8 +138,8 @@ export function AchievementsPage() {
                   <div
                     className={`w-14 h-14 rounded-lg flex items-center justify-center text-2xl ${
                       achievement.earned
-                        ? tierBgColors[achievement.tier] || 'bg-yellow-100'
-                        : 'bg-neutral-200'
+                        ? tierBgColors[achievement.tier] || 'bg-yellow-100 dark:bg-yellow-500/20'
+                        : 'bg-neutral-200 dark:bg-slate-600'
                     }`}
                   >
                     {achievement.earned ? (
@@ -160,12 +160,12 @@ export function AchievementsPage() {
                   </div>
                 </div>
                 <h3 className={`text-lg font-semibold mb-1 ${
-                  achievement.earned ? 'text-neutral-900' : 'text-neutral-500'
+                  achievement.earned ? 'text-neutral-900 dark:text-slate-100' : 'text-neutral-500 dark:text-slate-500'
                 }`}>
                   {achievement.name}
                 </h3>
                 <p className={`text-sm ${
-                  achievement.earned ? 'text-neutral-600' : 'text-neutral-400'
+                  achievement.earned ? 'text-neutral-600 dark:text-slate-400' : 'text-neutral-400 dark:text-slate-500'
                 }`}>
                   {achievement.description}
                 </p>
@@ -184,8 +184,8 @@ export function AchievementsPage() {
       {!isLoading && achievements.length === 0 && (
         <Card>
           <CardContent className="py-12 text-center">
-            <Trophy className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
-            <p className="text-neutral-600">No achievements available</p>
+            <Trophy className="h-12 w-12 text-neutral-400 dark:text-slate-500 mx-auto mb-4" />
+            <p className="text-neutral-600 dark:text-slate-400">No achievements available</p>
           </CardContent>
         </Card>
       )}

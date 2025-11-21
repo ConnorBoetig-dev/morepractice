@@ -70,8 +70,8 @@ export function AvatarsPage() {
   return (
     <div className="p-6">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-neutral-900 mb-2">Avatars</h1>
-        <p className="text-neutral-600">
+        <h1 className="text-3xl font-bold text-neutral-900 dark:text-slate-100 mb-2">Avatars</h1>
+        <p className="text-neutral-600 dark:text-slate-400">
           Customize your profile ({unlockedCount}/{avatarList.length} unlocked)
         </p>
       </div>
@@ -79,14 +79,14 @@ export function AvatarsPage() {
       {/* Progress Bar */}
       {stats && (
         <Card className="mb-8">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-neutral-700">Collection Progress</span>
-              <span className="text-sm text-neutral-600">{stats.completion_percentage?.toFixed(0)}%</span>
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-medium text-slate-300">Collection Progress</span>
+              <span className="text-xs text-slate-400">{stats.completion_percentage?.toFixed(0)}%</span>
             </div>
-            <div className="w-full bg-neutral-200 rounded-full h-2">
+            <div className="w-full bg-slate-600 rounded-full h-1.5">
               <div
-                className="bg-primary-500 h-2 rounded-full transition-all"
+                className="bg-primary-500 h-1.5 rounded-full transition-all"
                 style={{ width: `${stats.completion_percentage || 0}%` }}
               />
             </div>
@@ -99,9 +99,9 @@ export function AvatarsPage() {
           {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
             <Card key={i} className="animate-pulse">
               <CardContent className="pt-6 text-center">
-                <div className="w-20 h-20 bg-neutral-200 rounded-full mx-auto mb-4" />
-                <div className="h-4 bg-neutral-200 rounded w-2/3 mx-auto mb-2" />
-                <div className="h-3 bg-neutral-200 rounded w-full" />
+                <div className="w-20 h-20 bg-neutral-200 dark:bg-slate-600 rounded-full mx-auto mb-4" />
+                <div className="h-4 bg-neutral-200 dark:bg-slate-600 rounded w-2/3 mx-auto mb-2" />
+                <div className="h-3 bg-neutral-200 dark:bg-slate-600 rounded w-full" />
               </CardContent>
             </Card>
           ))}
@@ -114,7 +114,7 @@ export function AvatarsPage() {
             return (
               <Card
                 key={avatar.id}
-                className={`transition-all ${
+                className={`transition-all cursor-pointer hover:scale-105 hover:shadow-lg hover:shadow-primary-500/20 ${
                   avatar.is_selected ? 'ring-2 ring-primary-500' : ''
                 } ${!isUnlocked ? 'opacity-60' : ''}`}
               >
@@ -122,7 +122,7 @@ export function AvatarsPage() {
                   <div className="relative inline-block mb-4">
                     <div
                       className={`w-20 h-20 rounded-full mx-auto flex items-center justify-center overflow-hidden ${
-                        isUnlocked ? 'bg-primary-100' : 'bg-neutral-100'
+                        isUnlocked ? 'bg-primary-100 dark:bg-primary-900/50' : 'bg-neutral-100 dark:bg-slate-600'
                       }`}
                     >
                       {isUnlocked ? (
@@ -149,8 +149,8 @@ export function AvatarsPage() {
                     )}
                   </div>
 
-                  <h3 className="font-semibold text-neutral-900 mb-1">{avatar.name}</h3>
-                  <p className="text-xs text-neutral-600 mb-3 line-clamp-2">{avatar.description}</p>
+                  <h3 className="font-semibold text-neutral-900 dark:text-slate-100 mb-1">{avatar.name}</h3>
+                  <p className="text-xs text-neutral-600 dark:text-slate-400 mb-3 line-clamp-2">{avatar.description}</p>
 
                   {isUnlocked ? (
                     avatar.is_selected ? (
@@ -180,8 +180,8 @@ export function AvatarsPage() {
       {!isLoading && avatarList.length === 0 && (
         <Card>
           <CardContent className="py-12 text-center">
-            <User className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
-            <p className="text-neutral-600">No avatars available</p>
+            <User className="h-12 w-12 text-neutral-400 dark:text-slate-500 mx-auto mb-4" />
+            <p className="text-neutral-600 dark:text-slate-400">No avatars available</p>
           </CardContent>
         </Card>
       )}

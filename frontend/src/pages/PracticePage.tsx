@@ -51,8 +51,8 @@ export function PracticePage() {
     <div className="p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-neutral-900 mb-2">Practice Quiz</h1>
-          <p className="text-neutral-600">Test your knowledge with timed practice</p>
+          <h1 className="text-3xl font-bold text-neutral-900 dark:text-slate-100 mb-2">Practice Quiz</h1>
+          <p className="text-neutral-600 dark:text-slate-400">Test your knowledge with timed practice</p>
         </div>
         <Button variant="secondary" onClick={() => navigate('/app/practice/history')}>
           <History className="h-4 w-4 mr-2" />
@@ -62,14 +62,14 @@ export function PracticePage() {
 
       {/* Step 1: Select Exam */}
       <div className="mb-8">
-        <h2 className="text-lg font-semibold text-neutral-800 mb-4">
+        <h2 className="text-lg font-semibold text-neutral-800 dark:text-slate-200 mb-4">
           {selectedExam ? '1. Exam Selected' : '1. Select an Exam'}
         </h2>
 
         {isLoading ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-32 bg-neutral-200 rounded-xl animate-pulse" />
+              <div key={i} className="h-32 bg-neutral-200 dark:bg-slate-700 rounded-xl animate-pulse" />
             ))}
           </div>
         ) : (
@@ -80,20 +80,20 @@ export function PracticePage() {
                 onClick={() => setSelectedExam(examType)}
                 className={`p-6 rounded-xl border-2 transition-all text-center ${
                   selectedExam === examType
-                    ? 'border-primary-500 bg-primary-50'
-                    : 'border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50'
+                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30'
+                    : 'border-neutral-200 dark:border-slate-600 bg-white dark:bg-slate-700 hover:border-neutral-300 dark:hover:border-slate-500 hover:bg-neutral-50 dark:hover:bg-slate-600'
                 }`}
               >
                 <Target className={`h-8 w-8 mx-auto mb-3 ${
-                  selectedExam === examType ? 'text-primary-500' : 'text-neutral-400'
+                  selectedExam === examType ? 'text-primary-500' : 'text-neutral-400 dark:text-slate-400'
                 }`} />
                 <p className={`font-semibold ${
-                  selectedExam === examType ? 'text-primary-700' : 'text-neutral-900'
+                  selectedExam === examType ? 'text-primary-700 dark:text-primary-400' : 'text-neutral-900 dark:text-slate-100'
                 }`}>
                   {EXAM_DISPLAY_NAMES[examType] || examType.toUpperCase()}
                 </p>
                 <p className={`text-sm ${
-                  selectedExam === examType ? 'text-primary-600' : 'text-neutral-500'
+                  selectedExam === examType ? 'text-primary-600 dark:text-primary-400' : 'text-neutral-500 dark:text-slate-400'
                 }`}>
                   {EXAM_SUBTITLES[examType] || 'CompTIA'}
                 </p>
@@ -119,9 +119,9 @@ export function PracticePage() {
                 value={questionCount}
                 onChange={(e) => setQuestionCount(e.target.value)}
                 placeholder="10"
-                className="w-32 px-4 py-3 border-2 border-neutral-200 rounded-lg text-center text-lg font-medium focus:border-primary-500 focus:outline-none"
+                className="w-32 px-4 py-3 border-2 border-neutral-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-neutral-900 dark:text-slate-100 rounded-lg text-center text-lg font-medium focus:border-primary-500 focus:outline-none"
               />
-              <div className="flex items-center text-neutral-600">
+              <div className="flex items-center text-neutral-600 dark:text-slate-400">
                 <Clock className="h-5 w-5 mr-2" />
                 <span>~{Math.ceil((parseInt(questionCount) || 10) * 1.5)} minutes</span>
               </div>
@@ -136,7 +136,7 @@ export function PracticePage() {
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     parseInt(questionCount) === count
                       ? 'bg-primary-500 text-white'
-                      : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                      : 'bg-neutral-100 dark:bg-slate-600 text-neutral-700 dark:text-slate-200 hover:bg-neutral-200 dark:hover:bg-slate-500'
                   }`}
                 >
                   {count}

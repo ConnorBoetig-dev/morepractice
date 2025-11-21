@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { apiClient } from '@/services/api'
-import { BookOpen, CheckCircle, XCircle, ArrowRight, Target, AlertCircle, X, Trophy, RotateCcw } from 'lucide-react'
+import { BookOpen, CheckCircle, XCircle, ArrowRight, Target, AlertCircle, X, Trophy, RotateCcw, Bookmark } from 'lucide-react'
 
 const EXAM_DISPLAY_NAMES: Record<string, string> = {
   'a1101': 'A+ Core 1',
@@ -62,6 +62,7 @@ export function StudyPage() {
   const [submittedQuestionId, setSubmittedQuestionId] = useState<number | null>(null)
   const [correctCount, setCorrectCount] = useState(0)
   const [studyResults, setStudyResults] = useState<StudyResults | null>(null)
+  const [bookmarked, setBookmarked] = useState<Set<number>>(new Set())
 
   // Check for active session on mount (only when no local session)
   const { data: activeSession } = useQuery({
@@ -204,6 +205,34 @@ export function StudyPage() {
     },
   })
 
+  // Bookmark mutation
+  const bookmarkMutation = useMutation({
+    mutationFn: async (questionId: number) => {
+      if (bookmarked.has(questionId)) {
+        await apiClient.delete(`/bookmarks/questions/${questionId}`)
+      } else {
+        await apiClient.post(`/bookmarks/questions/${questionId}`, { notes: null })
+      }
+    },
+    onSuccess: (_, questionId) => {
+      const newBookmarked = new Set(bookmarked)
+      if (newBookmarked.has(questionId)) {
+        newBookmarked.delete(questionId)
+      } else {
+        newBookmarked.add(questionId)
+      }
+      setBookmarked(newBookmarked)
+      queryClient.invalidateQueries({ queryKey: ['bookmarks'] })
+    },
+  })
+
+  const handleToggleBookmark = () => {
+    const questionId = session?.current_question?.question_id
+    if (questionId) {
+      bookmarkMutation.mutate(questionId)
+    }
+  }
+
   const handleStartSession = () => {
     const count = parseInt(questionCount) || 10
     if (selectedExam && count >= 1 && count <= 90) {
@@ -258,7 +287,7 @@ export function StudyPage() {
         <div className="flex items-center justify-between mb-6">
           <Badge variant="primary">{EXAM_DISPLAY_NAMES[selectedExam!] || selectedExam?.toUpperCase()}</Badge>
           <div className="flex items-center gap-4">
-            <span className="text-neutral-600">
+            <span className="text-neutral-600 dark:text-slate-400">
               Question {questionNumber} of {session.total_questions}
             </span>
             <Button
@@ -280,7 +309,7 @@ export function StudyPage() {
         </div>
 
         {/* Progress */}
-        <div className="w-full bg-neutral-200 rounded-full h-2 mb-8">
+        <div className="w-full bg-neutral-200 dark:bg-slate-600 rounded-full h-2 mb-8">
           <div
             className="bg-primary-500 h-2 rounded-full transition-all"
             style={{ width: `${(questionNumber / session.total_questions) * 100}%` }}
@@ -289,8 +318,22 @@ export function StudyPage() {
 
         <Card className="mb-6">
           <CardContent className="pt-6">
-            {q.domain && <Badge variant="neutral" className="mb-4">{q.domain}</Badge>}
-            <h2 className="text-lg font-medium text-neutral-900 mb-6">{q.question_text}</h2>
+            <div className="flex items-start justify-between mb-4">
+              {q.domain && <Badge variant="neutral">{q.domain}</Badge>}
+              <button
+                onClick={handleToggleBookmark}
+                disabled={bookmarkMutation.isPending}
+                className={`p-2 rounded-lg transition-colors ${
+                  bookmarked.has(q.question_id)
+                    ? 'text-yellow-500 bg-yellow-500/20'
+                    : 'text-slate-400 hover:text-yellow-500 hover:bg-yellow-500/20'
+                }`}
+                title={bookmarked.has(q.question_id) ? 'Remove bookmark' : 'Bookmark question'}
+              >
+                <Bookmark className={`h-5 w-5 ${bookmarked.has(q.question_id) ? 'fill-current' : ''}`} />
+              </button>
+            </div>
+            <h2 className="text-lg font-medium text-neutral-900 dark:text-slate-100 mb-6">{q.question_text}</h2>
 
             <div className="space-y-3">
               {optionKeys.map((optKey) => {
@@ -311,12 +354,12 @@ export function StudyPage() {
                       disabled={!!feedback}
                       className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
                         isCorrect
-                          ? 'border-success-500 bg-success-50'
+                          ? 'border-success-500 bg-success-50 dark:bg-success-500/20'
                           : isWrong
-                          ? 'border-error-500 bg-error-50'
+                          ? 'border-error-500 bg-error-50 dark:bg-error-500/20'
                           : isSelected
-                          ? 'border-primary-500 bg-primary-50'
-                          : 'border-neutral-200 hover:border-neutral-300'
+                          ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30'
+                          : 'border-neutral-200 dark:border-slate-600 hover:border-neutral-300 dark:hover:border-slate-500'
                       }`}
                     >
                       <div className="flex items-center justify-between">
@@ -325,18 +368,18 @@ export function StudyPage() {
                             isCorrect ? 'bg-success-500 text-white' :
                             isWrong ? 'bg-error-500 text-white' :
                             isSelected ? 'bg-primary-500 text-white' :
-                            'bg-neutral-200 text-neutral-700'
+                            'bg-neutral-200 dark:bg-slate-600 text-neutral-700 dark:text-slate-300'
                           }`}>
                             {optKey}
                           </span>
-                          <span className="text-neutral-900 pt-1">{option.text}</span>
+                          <span className="text-neutral-900 dark:text-slate-100 pt-1">{option.text}</span>
                         </div>
                         {isCorrect && <CheckCircle className="h-5 w-5 text-success-500 flex-shrink-0" />}
                         {isWrong && <XCircle className="h-5 w-5 text-error-500 flex-shrink-0" />}
                       </div>
                     </button>
                     {explanation && (
-                      <p className={`ml-11 text-sm ${isCorrect ? 'text-success-700' : 'text-neutral-600'}`}>
+                      <p className={`ml-11 text-sm ${isCorrect ? 'text-success-700 dark:text-success-400' : 'text-neutral-600 dark:text-slate-400'}`}>
                         {explanation}
                       </p>
                     )}
@@ -397,17 +440,17 @@ export function StudyPage() {
               <Trophy className={`h-10 w-10 ${passed ? 'text-success-500' : 'text-error-500'}`} />
             </div>
 
-            <h1 className="text-3xl font-bold text-neutral-900 mb-2">
+            <h1 className="text-3xl font-bold text-neutral-900 dark:text-slate-100 mb-2">
               {passed ? 'Great Job!' : 'Keep Practicing!'}
             </h1>
-            <p className="text-neutral-600 mb-6">
+            <p className="text-neutral-600 dark:text-slate-400 mb-6">
               {EXAM_DISPLAY_NAMES[studyResults.examType] || studyResults.examType.toUpperCase()} Study Session Complete
             </p>
 
             <div className="text-6xl font-bold mb-2" style={{ color: passed ? '#22c55e' : '#ef4444' }}>
               {percentage}%
             </div>
-            <p className="text-neutral-600 mb-8">
+            <p className="text-neutral-600 dark:text-slate-400 mb-8">
               {studyResults.correctCount} of {studyResults.totalQuestions} correct
             </p>
 
@@ -449,20 +492,20 @@ export function StudyPage() {
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-neutral-900 mb-2">Study Mode</h1>
-        <p className="text-neutral-600">Learn at your own pace with immediate feedback</p>
+        <h1 className="text-3xl font-bold text-neutral-900 dark:text-slate-100 mb-2">Study Mode</h1>
+        <p className="text-neutral-600 dark:text-slate-400">Learn at your own pace with immediate feedback</p>
       </div>
 
       {/* Step 1: Select Exam */}
       <div className="mb-8">
-        <h2 className="text-lg font-semibold text-neutral-800 mb-4">
+        <h2 className="text-lg font-semibold text-neutral-800 dark:text-slate-200 mb-4">
           {selectedExam ? '1. Exam Selected' : '1. Select an Exam'}
         </h2>
 
         {isLoading ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-32 bg-neutral-200 rounded-xl animate-pulse" />
+              <div key={i} className="h-32 bg-neutral-200 dark:bg-slate-700 rounded-xl animate-pulse" />
             ))}
           </div>
         ) : (
@@ -473,20 +516,20 @@ export function StudyPage() {
                 onClick={() => setSelectedExam(examType)}
                 className={`p-6 rounded-xl border-2 transition-all text-center ${
                   selectedExam === examType
-                    ? 'border-primary-500 bg-primary-50'
-                    : 'border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50'
+                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30'
+                    : 'border-neutral-200 dark:border-slate-600 bg-white dark:bg-slate-700 hover:border-neutral-300 dark:hover:border-slate-500 hover:bg-neutral-50 dark:hover:bg-slate-600'
                 }`}
               >
                 <Target className={`h-8 w-8 mx-auto mb-3 ${
-                  selectedExam === examType ? 'text-primary-500' : 'text-neutral-400'
+                  selectedExam === examType ? 'text-primary-500' : 'text-neutral-400 dark:text-slate-400'
                 }`} />
                 <p className={`font-semibold ${
-                  selectedExam === examType ? 'text-primary-700' : 'text-neutral-900'
+                  selectedExam === examType ? 'text-primary-700 dark:text-primary-400' : 'text-neutral-900 dark:text-slate-100'
                 }`}>
                   {EXAM_DISPLAY_NAMES[examType] || examType.toUpperCase()}
                 </p>
                 <p className={`text-sm ${
-                  selectedExam === examType ? 'text-primary-600' : 'text-neutral-500'
+                  selectedExam === examType ? 'text-primary-600 dark:text-primary-400' : 'text-neutral-500 dark:text-slate-400'
                 }`}>
                   {EXAM_SUBTITLES[examType] || 'CompTIA'}
                 </p>
@@ -512,9 +555,9 @@ export function StudyPage() {
                 value={questionCount}
                 onChange={(e) => setQuestionCount(e.target.value)}
                 placeholder="10"
-                className="w-32 px-4 py-3 border-2 border-neutral-200 rounded-lg text-center text-lg font-medium focus:border-primary-500 focus:outline-none"
+                className="w-32 px-4 py-3 border-2 border-neutral-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-neutral-900 dark:text-slate-100 rounded-lg text-center text-lg font-medium focus:border-primary-500 focus:outline-none"
               />
-              <span className="text-neutral-600">No timer - learn at your pace</span>
+              <span className="text-neutral-600 dark:text-slate-400">No timer - learn at your pace</span>
             </div>
 
             {/* Quick select buttons */}
@@ -526,7 +569,7 @@ export function StudyPage() {
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     parseInt(questionCount) === count
                       ? 'bg-primary-500 text-white'
-                      : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                      : 'bg-neutral-100 dark:bg-slate-600 text-neutral-700 dark:text-slate-200 hover:bg-neutral-200 dark:hover:bg-slate-500'
                   }`}
                 >
                   {count}
