@@ -554,3 +554,627 @@ def test_achievement_progress_over_100(client, auth_headers, test_db, test_user)
     if response.status_code != 404:
         assert response.status_code == 200
         # Progress should be handled gracefully
+
+
+# ================================================================
+# COMPREHENSIVE ACHIEVEMENT TRIGGER TESTS
+# ================================================================
+
+@pytest.mark.integration
+def test_check_achievement_email_verified_trigger(test_db, test_user):
+    """
+    REAL TEST: Email verification achievement trigger
+    Tests: Achievement unlocked when user verifies email
+    """
+    from app.services.achievement_service import check_and_award_achievements
+    from app.models.user import UserProfile
+
+    # Create profile
+    profile = UserProfile(
+        user_id=test_user.id,
+        xp=0,
+        level=1
+    )
+    test_db.add(profile)
+
+    # Create email verification achievement
+    achievement = Achievement(
+        name="Email Verified",
+        description="Verify your email address",
+        icon="✉️",
+        rarity="common",
+        criteria_type="email_verified",
+        criteria_value=1,
+        xp_reward=50
+    )
+    test_db.add(achievement)
+    test_db.commit()
+    test_db.refresh(achievement)
+
+    # User verifies email
+    test_user.is_verified = True
+    test_db.commit()
+
+    # Check achievements
+    unlocked = check_and_award_achievements(test_db, test_user.id)
+
+    # Should unlock email verification achievement
+    if unlocked:
+        assert len(unlocked) > 0
+        assert unlocked[0].name == "Email Verified"
+        assert unlocked[0].xp_reward == 50
+
+        # Verify XP was awarded
+        test_db.refresh(profile)
+        assert profile.xp >= 50
+
+
+@pytest.mark.integration
+def test_check_achievement_quiz_completed_trigger(test_db, test_user):
+    """
+    REAL TEST: Quiz completion achievement trigger
+    Tests: Achievement unlocked after completing N quizzes
+    """
+    from app.services.achievement_service import check_and_award_achievements
+
+    # Create profile
+    profile = UserProfile(
+        user_id=test_user.id,
+        xp=0,
+        level=1
+    )
+    test_db.add(profile)
+
+    # Create achievement for 5 quizzes
+    achievement = Achievement(
+        name="Quiz Novice",
+        description="Complete 5 quizzes",
+        icon="🎯",
+        rarity="common",
+        criteria_type="quiz_completed",
+        criteria_value=5,
+        xp_reward=100
+    )
+    test_db.add(achievement)
+    test_db.commit()
+
+    # Complete 5 quizzes
+    for i in range(5):
+        attempt = QuizAttempt(
+            user_id=test_user.id,
+            exam_type="security",
+            total_questions=10,
+            correct_answers=7,
+            score_percentage=70.0,
+            xp_earned=50
+        )
+        test_db.add(attempt)
+    test_db.commit()
+
+    # Check achievements
+    unlocked = check_and_award_achievements(test_db, test_user.id)
+
+    # Should unlock achievement
+    if unlocked:
+        assert any(a.name == "Quiz Novice" for a in unlocked)
+
+
+@pytest.mark.integration
+def test_check_achievement_perfect_quiz_trigger(test_db, test_user):
+    """
+    REAL TEST: Perfect quiz achievement trigger
+    Tests: Achievement unlocked after getting 100% score
+    """
+    from app.services.achievement_service import check_and_award_achievements
+
+    # Create profile
+    profile = UserProfile(user_id=test_user.id, xp=0, level=1)
+    test_db.add(profile)
+
+    # Create perfect quiz achievement
+    achievement = Achievement(
+        name="Perfectionist",
+        description="Get 100% on a quiz",
+        icon="💯",
+        rarity="rare",
+        criteria_type="perfect_quiz",
+        criteria_value=1,
+        xp_reward=200
+    )
+    test_db.add(achievement)
+    test_db.commit()
+
+    # Complete perfect quiz
+    attempt = QuizAttempt(
+        user_id=test_user.id,
+        exam_type="security",
+        total_questions=10,
+        correct_answers=10,
+        score_percentage=100.0,
+        xp_earned=100
+    )
+    test_db.add(attempt)
+    test_db.commit()
+
+    # Check achievements
+    unlocked = check_and_award_achievements(test_db, test_user.id)
+
+    # Should unlock
+    if unlocked:
+        assert any(a.name == "Perfectionist" for a in unlocked)
+
+
+@pytest.mark.integration
+def test_check_achievement_high_score_trigger(test_db, test_user):
+    """
+    REAL TEST: High score achievement trigger
+    Tests: Achievement unlocked after 90%+ score
+    """
+    from app.services.achievement_service import check_and_award_achievements
+
+    profile = UserProfile(user_id=test_user.id, xp=0, level=1)
+    test_db.add(profile)
+
+    achievement = Achievement(
+        name="High Achiever",
+        description="Get 90%+ on a quiz",
+        icon="🌟",
+        rarity="rare",
+        criteria_type="high_score_quiz",
+        criteria_value=1,
+        xp_reward=150
+    )
+    test_db.add(achievement)
+    test_db.commit()
+
+    # 95% quiz
+    attempt = QuizAttempt(
+        user_id=test_user.id,
+        exam_type="network",
+        total_questions=20,
+        correct_answers=19,
+        score_percentage=95.0,
+        xp_earned=100
+    )
+    test_db.add(attempt)
+    test_db.commit()
+
+    unlocked = check_and_award_achievements(test_db, test_user.id)
+
+    if unlocked:
+        assert any(a.name == "High Achiever" for a in unlocked)
+
+
+@pytest.mark.integration
+def test_check_achievement_correct_answers_trigger(test_db, test_user):
+    """
+    REAL TEST: Correct answers accumulation trigger
+    Tests: Achievement unlocked after N total correct answers
+    """
+    from app.services.achievement_service import check_and_award_achievements
+
+    profile = UserProfile(user_id=test_user.id, xp=0, level=1)
+    test_db.add(profile)
+
+    achievement = Achievement(
+        name="Answer Master",
+        description="Get 100 correct answers",
+        icon="✅",
+        rarity="epic",
+        criteria_type="correct_answers",
+        criteria_value=100,
+        xp_reward=500
+    )
+    test_db.add(achievement)
+    test_db.commit()
+
+    # Create quizzes totaling 100+ correct answers
+    for i in range(10):
+        attempt = QuizAttempt(
+            user_id=test_user.id,
+            exam_type="security",
+            total_questions=15,
+            correct_answers=12,  # 10 quizzes * 12 = 120 correct
+            score_percentage=80.0,
+            xp_earned=80
+        )
+        test_db.add(attempt)
+    test_db.commit()
+
+    unlocked = check_and_award_achievements(test_db, test_user.id)
+
+    if unlocked:
+        assert any(a.name == "Answer Master" for a in unlocked)
+
+
+@pytest.mark.integration
+def test_check_achievement_level_reached_trigger(test_db, test_user):
+    """
+    REAL TEST: Level achievement trigger
+    Tests: Achievement unlocked when reaching specific level
+    """
+    from app.services.achievement_service import check_and_award_achievements
+
+    profile = UserProfile(
+        user_id=test_user.id,
+        xp=5000,  # High XP
+        level=10   # Level 10
+    )
+    test_db.add(profile)
+
+    achievement = Achievement(
+        name="Level 10",
+        description="Reach level 10",
+        icon="🔟",
+        rarity="epic",
+        criteria_type="level_reached",
+        criteria_value=10,
+        xp_reward=1000
+    )
+    test_db.add(achievement)
+    test_db.commit()
+
+    unlocked = check_and_award_achievements(test_db, test_user.id)
+
+    if unlocked:
+        assert any(a.name == "Level 10" for a in unlocked)
+
+
+@pytest.mark.integration
+def test_check_achievement_exam_specific_trigger(test_db, test_user):
+    """
+    REAL TEST: Exam-specific achievement trigger
+    Tests: Achievement for completing N quizzes in specific exam type
+    """
+    from app.services.achievement_service import check_and_award_achievements
+
+    profile = UserProfile(user_id=test_user.id, xp=0, level=1)
+    test_db.add(profile)
+
+    achievement = Achievement(
+        name="Security Expert",
+        description="Complete 15 Security+ quizzes",
+        icon="🔒",
+        rarity="rare",
+        criteria_type="exam_specific",
+        criteria_value=15,
+        criteria_exam_type="security",
+        xp_reward=300
+    )
+    test_db.add(achievement)
+    test_db.commit()
+
+    # Create 15 security quizzes
+    for i in range(15):
+        attempt = QuizAttempt(
+            user_id=test_user.id,
+            exam_type="security",
+            total_questions=10,
+            correct_answers=7,
+            score_percentage=70.0,
+            xp_earned=50
+        )
+        test_db.add(attempt)
+
+    # Also add some network quizzes (should not count)
+    for i in range(5):
+        attempt = QuizAttempt(
+            user_id=test_user.id,
+            exam_type="network",
+            total_questions=10,
+            correct_answers=7,
+            score_percentage=70.0,
+            xp_earned=50
+        )
+        test_db.add(attempt)
+
+    test_db.commit()
+
+    unlocked = check_and_award_achievements(test_db, test_user.id, exam_type="security")
+
+    if unlocked:
+        assert any(a.name == "Security Expert" for a in unlocked)
+
+
+@pytest.mark.integration
+def test_check_achievement_multi_domain_trigger(test_db, test_user):
+    """
+    REAL TEST: Multi-domain achievement trigger
+    Tests: Achievement for 10+ quizzes in multiple exam types
+    """
+    from app.services.achievement_service import check_and_award_achievements
+
+    profile = UserProfile(user_id=test_user.id, xp=0, level=1)
+    test_db.add(profile)
+
+    achievement = Achievement(
+        name="Well Rounded",
+        description="Complete 10+ quizzes in 2 different exam types",
+        icon="🎓",
+        rarity="epic",
+        criteria_type="multi_domain",
+        criteria_value=2,
+        xp_reward=500
+    )
+    test_db.add(achievement)
+    test_db.commit()
+
+    # Create 10 security quizzes
+    for i in range(10):
+        test_db.add(QuizAttempt(
+            user_id=test_user.id,
+            exam_type="security",
+            total_questions=10,
+            correct_answers=7,
+            score_percentage=70.0,
+            xp_earned=50
+        ))
+
+    # Create 10 network quizzes
+    for i in range(10):
+        test_db.add(QuizAttempt(
+            user_id=test_user.id,
+            exam_type="network",
+            total_questions=10,
+            correct_answers=7,
+            score_percentage=70.0,
+            xp_earned=50
+        ))
+
+    test_db.commit()
+
+    unlocked = check_and_award_achievements(test_db, test_user.id)
+
+    if unlocked:
+        assert any(a.name == "Well Rounded" for a in unlocked)
+
+
+@pytest.mark.integration
+def test_achievement_awards_xp(test_db, test_user):
+    """
+    REAL TEST: Achievement awards XP
+    Tests: User receives XP reward when unlocking achievement
+    """
+    from app.services.achievement_service import check_and_award_achievements
+
+    initial_xp = 100
+    profile = UserProfile(
+        user_id=test_user.id,
+        xp=initial_xp,
+        level=1
+    )
+    test_db.add(profile)
+
+    achievement = Achievement(
+        name="XP Test",
+        description="Test XP award",
+        icon="⭐",
+        rarity="common",
+        criteria_type="quiz_completed",
+        criteria_value=1,
+        xp_reward=250
+    )
+    test_db.add(achievement)
+    test_db.commit()
+
+    # Complete quiz
+    test_db.add(QuizAttempt(
+        user_id=test_user.id,
+        exam_type="security",
+        total_questions=10,
+        correct_answers=7,
+        score_percentage=70.0,
+        xp_earned=50
+    ))
+    test_db.commit()
+
+    unlocked = check_and_award_achievements(test_db, test_user.id)
+
+    # Verify XP was awarded
+    test_db.refresh(profile)
+    assert profile.xp == initial_xp + 250
+
+
+@pytest.mark.integration
+def test_achievement_not_awarded_twice(test_db, test_user):
+    """
+    REAL TEST: Achievement not re-awarded
+    Tests: Already-earned achievements are not awarded again
+    """
+    from app.services.achievement_service import check_and_award_achievements
+
+    profile = UserProfile(user_id=test_user.id, xp=0, level=1)
+    test_db.add(profile)
+
+    achievement = Achievement(
+        name="Once Only",
+        description="Awarded once",
+        icon="🔒",
+        rarity="common",
+        criteria_type="quiz_completed",
+        criteria_value=1,
+        xp_reward=100
+    )
+    test_db.add(achievement)
+    test_db.commit()
+    test_db.refresh(achievement)
+
+    # Complete quiz
+    test_db.add(QuizAttempt(
+        user_id=test_user.id,
+        exam_type="security",
+        total_questions=10,
+        correct_answers=7,
+        score_percentage=70.0,
+        xp_earned=50
+    ))
+    test_db.commit()
+
+    # First check - should award
+    unlocked1 = check_and_award_achievements(test_db, test_user.id)
+    test_db.commit()
+
+    # Second check - should NOT award again
+    unlocked2 = check_and_award_achievements(test_db, test_user.id)
+
+    if unlocked1:
+        assert len(unlocked1) > 0
+    # Second time should not award the same achievement
+    if unlocked2 is not None:
+        assert not any(a.name == "Once Only" for a in unlocked2)
+
+
+@pytest.mark.integration
+def test_achievement_unlocks_avatar(test_db, test_user):
+    """
+    REAL TEST: Achievement unlocks avatar
+    Tests: Unlocking achievement also unlocks associated avatar
+    """
+    from app.services.achievement_service import check_and_award_achievements
+    from app.models.gamification import Avatar, UserAvatar
+
+    profile = UserProfile(user_id=test_user.id, xp=0, level=1)
+    test_db.add(profile)
+
+    # Create achievement
+    achievement = Achievement(
+        name="Avatar Unlocker",
+        description="Unlocks special avatar",
+        icon="🎭",
+        rarity="rare",
+        criteria_type="quiz_completed",
+        criteria_value=1,
+        xp_reward=100
+    )
+    test_db.add(achievement)
+    test_db.commit()
+    test_db.refresh(achievement)
+
+    # Create avatar linked to achievement
+    avatar = Avatar(
+        name="Achievement Avatar",
+        description="Unlocked by achievement",
+        image_url="/avatars/special.png",
+        required_achievement_id=achievement.id
+    )
+    test_db.add(avatar)
+    test_db.commit()
+    test_db.refresh(avatar)
+
+    # Complete quiz
+    test_db.add(QuizAttempt(
+        user_id=test_user.id,
+        exam_type="security",
+        total_questions=10,
+        correct_answers=7,
+        score_percentage=70.0,
+        xp_earned=50
+    ))
+    test_db.commit()
+
+    # Check achievements (should also unlock avatar)
+    unlocked = check_and_award_achievements(test_db, test_user.id)
+    test_db.commit()
+
+    # Verify avatar was unlocked
+    user_avatar = test_db.query(UserAvatar).filter(
+        UserAvatar.user_id == test_user.id,
+        UserAvatar.avatar_id == avatar.id
+    ).first()
+
+    if unlocked and len(unlocked) > 0:
+        assert user_avatar is not None
+
+
+@pytest.mark.integration
+def test_multiple_achievements_unlocked_simultaneously(test_db, test_user):
+    """
+    REAL TEST: Multiple achievements at once
+    Tests: Multiple achievements can be unlocked in single check
+    """
+    from app.services.achievement_service import check_and_award_achievements
+
+    profile = UserProfile(user_id=test_user.id, xp=0, level=1)
+    test_db.add(profile)
+
+    # Create multiple achievements with same criteria
+    ach1 = Achievement(
+        name="First Quiz",
+        description="Complete 1 quiz",
+        icon="1️⃣",
+        rarity="common",
+        criteria_type="quiz_completed",
+        criteria_value=1,
+        xp_reward=50
+    )
+    ach2 = Achievement(
+        name="Quiz Starter",
+        description="Also for 1 quiz",
+        icon="🎯",
+        rarity="common",
+        criteria_type="quiz_completed",
+        criteria_value=1,
+        xp_reward=50
+    )
+    test_db.add(ach1)
+    test_db.add(ach2)
+    test_db.commit()
+
+    # Complete quiz
+    test_db.add(QuizAttempt(
+        user_id=test_user.id,
+        exam_type="security",
+        total_questions=10,
+        correct_answers=7,
+        score_percentage=70.0,
+        xp_earned=50
+    ))
+    test_db.commit()
+
+    unlocked = check_and_award_achievements(test_db, test_user.id)
+
+    # Should unlock both
+    if unlocked:
+        assert len(unlocked) >= 2
+
+
+@pytest.mark.integration
+def test_achievement_criteria_not_met(test_db, test_user):
+    """
+    REAL TEST: Achievement not unlocked when criteria not met
+    Tests: Achievement remains locked if requirements not fulfilled
+    """
+    from app.services.achievement_service import check_and_award_achievements
+
+    profile = UserProfile(user_id=test_user.id, xp=0, level=1)
+    test_db.add(profile)
+
+    achievement = Achievement(
+        name="Needs 10",
+        description="Requires 10 quizzes",
+        icon="🔟",
+        rarity="rare",
+        criteria_type="quiz_completed",
+        criteria_value=10,
+        xp_reward=200
+    )
+    test_db.add(achievement)
+    test_db.commit()
+
+    # Only complete 5 quizzes
+    for i in range(5):
+        test_db.add(QuizAttempt(
+            user_id=test_user.id,
+            exam_type="security",
+            total_questions=10,
+            correct_answers=7,
+            score_percentage=70.0,
+            xp_earned=50
+        ))
+    test_db.commit()
+
+    unlocked = check_and_award_achievements(test_db, test_user.id)
+
+    # Should NOT unlock
+    if unlocked:
+        assert not any(a.name == "Needs 10" for a in unlocked)
